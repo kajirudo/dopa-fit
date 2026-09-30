@@ -1,6 +1,8 @@
 # GitHub / Vercel deployment
 
-公開先：GitHub `kajirudo/dopa-fit`、Vercel `kajirudos-projects`。
+公開先：[GitHub kajirudo/dopa-fit](https://github.com/kajirudo/dopa-fit)、Vercel `kajirudos-projects`。
+
+公開候補URL：[https://dopa-fit.vercel.app/](https://dopa-fit.vercel.app/)。2026-10-01にGitHub main連携で静的デプロイし、未ログインのHTTPSアクセスを確認しました。実機受入は未完了です。
 
 ## 変更を公開する前
 

@@ -11,8 +11,8 @@
 | 3 | FEVER・演出軽減・独自3ポーズ・粒子上限 | 20分の発熱／FPS／バッテリーと演出調整 |
 | 4 | 両手上げ・ステップ・上下動・3分コース・履歴 | 実運動1往復1回、欠落時の挙動を実機評価 |
 | 5 | PWA・静的依存・検証付きキャッシュ・待機更新 | Safari復帰・オフライン・キャッシュ削除・WebGL喪失の実機確認 |
-| 6 | README・MIT・第三者表示・Privacy・監査台帳・CI | 公開mainとクリーン取得の結果を記録 |
-| 7 | Vercel静的配信設定・main連携の手順 | 認証、実URL、両OS実機の一連の受入試験 |
+| 6 | README・MIT・第三者表示・Privacy・監査台帳・CI | GitHub公開とクリーン取得・CIは確認済み。追加変更は再検証 |
+| 7 | Vercel静的配信設定・main連携の手順 | main連携・本番HTTPS・未ログインDesktopは確認済み。両OS実機の受入が未完了 |
 
 順序について：Phase 1の縦切りを`?phase=1`で独立評価できます。実機評価が未完了のため、後続機能は調整前の候補実装です。実装が存在することを各Phaseの完了とは判定しません。
 
@@ -50,10 +50,13 @@ WASMはWebGL失敗時のみ起動します。PWAの初回バックグラウン�
 - [x] 独自ブランド3ポーズ・ロゴ・アイコンへ統一
 - [x] model.json・重み・WASMの出所とライセンスを記録
 - [x] 映像・骨格・利用統計のアップロード実装なし
-- [ ] クリーンなmainの取得・CI成功
-- [ ] GitHub一般公開と監査済み候補タグ
-- [ ] GitHub main → Vercel自動配信を確認
+- [x] クリーンなmainの取得・CI成功
+- [x] GitHub一般公開。候補タグ `v0.1.0-rc.1`
+- [x] GitHub main → Vercel連携でProduction配信を確認
 - [ ] 本番HTTPS → START → Camera → Pose → HIT → Audio → ENERGY／FEVER → 終了・再開をiPhone／Androidで確認
-- [ ] 本番で通信・Console・Performance確認
+- [x] 未ログインDesktop Chromiumで本番の通信・Console確認
+- [ ] 実機で本番の通信・Console・Performance確認
 
 すべての受入項目が確認できるまでRelease Readyのタグは付けません。公開候補タグは安定版と区別します。
+
+公開候補URL：https://dopa-fit.vercel.app/ 。コード・受入状況をGitHubで公開し、実機確認は引き続き未完了として扱います。

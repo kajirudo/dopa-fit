@@ -27,3 +27,13 @@ iPhone／Android実機でのカメラ許可・追跡・リーチ判定・Audio�
 ブラウザ試験とPWA試験は自前の一時サーバーを起動します。PWA更新試験はOSの一時フォルダーに配布ファイルのコピーを作り、コピーだけに意図した変更・hash破損を加え、終了時にその一時フォルダーを削除します。作業リポジトリの配布物は変更しません。
 
 生の結果と確認画像はローカルの無視対象`test-results/`。利用者の通信ログ・認証情報を公開する運用ではありません。GitHub Actionsでも同じ試験を実行します。
+
+## GitHub・Vercelの公開確認
+
+GitHub公開：https://github.com/kajirudo/dopa-fit 。初回監査コミット `2d4a8b7f7d9896366014272b911bf6a4121794ad`。GitHub Actions [36786982876](https://github.com/kajirudo/dopa-fit/actions/runs/36786982876) は成功。新しい空フォルダーへmainをcloneし、Node12項目、依存／ライセンスhash、キャッシュマニフェスト再生成後の差分0を確認しました。
+
+本番URL：https://dopa-fit.vercel.app/ 。Vercel `kajirudos-projects/dopa-fit`、mainに接続、Framework Other、Build Command空、Output Directory `.`。初回Deployment `4dqjzpYMh57ck9CkitJBvKHaLTTq` が上記commitを配信しReadyになったことをDashboardで確認しました。Functions使用なし、Web Analytics／Speed Insights SDKを追加していません。
+
+未ログインのChromiumから本番URLのブラウザ11項目を再実行し、すべて成功。CameraとローカルMoveNetの推論完了、合成骨格のHIT、デモのAudio／ENERGY／FEVER、カメラ停止、履歴、オフラインを確認しました。通信originは `https://dopa-fit.vercel.app` だけ、GETだけ、外部通信・アップロード・Console errorは0です。WASMのContent-Typeはapplication/wasm、モデルはapplication/json、HTTPS／CSP／Permissions-Policy／nosniffも確認。物理端末での試験の代用ではありません。
+
+公開候補のタグは `v0.1.0-rc.1`。実機ゲート未完了のため安定版・Release Readyとは扱いません。

@@ -2,6 +2,8 @@
 
 **Move your body. Build the beat.**
 
+[**Play Dopa Fit → https://dopa-fit.vercel.app/**](https://dopa-fit.vercel.app/)
+
 スマートフォンのインカメラで身体をコントローラーにする、独立したOSSフィットネス実験。手を伸ばして丸に触れると、音楽・光・Particle・ENERGY・FEVERが育ちます。静的HTML・JavaScriptだけで動作し、ビルド・サーバーAPI・ログインは不要です。
 
 ![Dopa Fitの応援ロボット](assets/characters/idle.png)
