@@ -68,6 +68,9 @@ test('calibration requires stable shoulders and both wrists', () => {
   manager.reset(); const noHand = pose(100, 300); noHand.points.right_wrist.valid = false;
   for (let t = 0; t <= 800; t += 100) result = manager.update(noHand, t);
   assert.equal(result.ready, undefined);
+  manager.reset();const nearEdge=pose(100,200);nearEdge.points.left_shoulder.y=0;nearEdge.points.right_shoulder.y=0;
+  for(let t=0;t<=800;t+=100)result=manager.update(nearEdge,t);
+  assert.equal(result.ready,undefined);assert.ok(result.message.includes('画面内'));
 });
 test('raised hands count once, require return, and do not count a dropout jump', () => {
   const tracker = new WorkoutTracker(), raised = pose(130, 140); raised.points.right_wrist = { x: 230, y: 140, valid: true };

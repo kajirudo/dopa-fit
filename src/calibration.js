@@ -14,6 +14,7 @@ export class CalibrationManager {
       this.samples = []; return { message: '少し下がって、画面の中央へ' };
     }
     if (shoulder < rect.width * .18) { this.samples = []; return { message: 'もう少し近づいてね' }; }
+    if (center.y + .25 * shoulder - radius < rect.y + 4) { this.samples = []; return { message: '肩と丸が画面内に入る位置へ調整してね' }; }
     if (center.y + .25 * shoulder + radius > rect.y + rect.height) { this.samples = []; return { message: 'カメラを少し下へ向けてね' }; }
     this.samples.push({ now, x: center.x, y: center.y, shoulder });
     this.samples = this.samples.filter(s => now - s.now <= 1200);
