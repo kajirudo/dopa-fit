@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5ef">
+  <meta name="description" content="Move your body. Build the beat. 身体で音楽を育てる、完全加点型のフィットネスゲーム。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Dopa Fit — Move your body. Build the beat.</title>
+</head>
+<body>
+  <main id="landing" class="landing">
+    <header class="site-header"><a class="wordmark" href="./" aria-label="Dopa Fit ホーム"><span class="brand-symbol" aria-hidden="true">✳</span> dopa<span>fit</span><span class="wordmark-dot">●</span></a><span class="header-note">A LITTLE MOVEMENT. A LOT OF JOY.</span><button id="history-open" class="text-button">運動の記録 <span aria-hidden="true">↗</span></button></header>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> YOUR BODY IS THE CONTROLLER</p>
+        <h1>Move your body.<br><span>Build the beat.</span></h1>
+        <p class="hero-ja">動くたび、世界がちょっと<br>気持ちよくなる。</p>
+        <p class="description">あなたの動きが、音になって、光になって。<br>スマホを置いたら、あとは楽しく手を伸ばすだけ。</p>
+        <div class="launch-actions"><button id="start" class="primary-button">START MOVING <span aria-hidden="true">↗</span></button><button id="demo" class="text-button demo-button">カメラなしで試す <span aria-hidden="true">→</span></button></div>
+        <p class="privacy-note"><span aria-hidden="true">◈</span> 映像・姿勢データは端末内で処理。保存・送信しません。</p>
+      </div>
+      <div class="hero-art" aria-label="Dopa Fitの応援マスコット">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
+        <span class="art-spark spark-one">✳</span><span class="art-spark spark-two">✦</span><span class="art-spark spark-three">✧</span>
+        <span class="floating-label label-one"><span>♪</span> GOOD VIBES ONLY</span><span class="floating-label label-two">MOVE <b>+1</b></span>
+        <img id="hero-mascot" class="hero-mascot" src="assets/characters/idle.png" alt="丸いミント色の応援ロボット" width="512" height="512">
+        <div class="art-caption"><span class="equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>MAKE SOME HAPPY NOISE.</span></div>
+        <div class="art-floor"></div>
+      </div>
+    </section>
+    <section class="how-it-feels" aria-label="遊び方">
+      <article><span class="step-number">01 / MOVE</span><h2>手を伸ばす。</h2><p>スマホを立てて、画面の丸にタッチ。<br>身体がそのままコントローラーに。</p></article>
+      <article><span class="step-number">02 / BUILD</span><h2>ビートが育つ。</h2><p>動くほど楽器と光が増えていく。<br>自分のペースで音楽をつくろう。</p></article>
+      <article><span class="step-number">03 / FEEL GOOD</span><h2>いいことだけ。</h2><p>MISSも減点も、ゲームオーバーもなし。<br>ひと息ついても、成果はそのまま。</p></article>
+    </section>
+    <section class="setup-strip"><span class="setup-icon" aria-hidden="true">↟</span><div><strong>スマホを立てる。少し離れる。さあ、動こう。</strong><p>ひとりで、無理のない範囲で。初めてのときはカメラの許可が必要です。</p></div><label class="course-option"><input id="course" type="checkbox"> 3分コース</label></section>
+    <footer class="site-footer"><span>Dopa Fit / ドパフィット</span><div><a href="privacy.html">プライバシー</a><a href="THIRD_PARTY_NOTICES.md">ライセンス</a><span>Inspired by <a href="https://github.com/grmchn/dopa-drill" rel="noopener noreferrer" target="_blank">dopa-drill</a></span></div><span>Independent. Open source. Positive.</span></footer>
+  </main>
+  <section id="play" class="play hidden" aria-label="運動画面">
+    <div class="play-header"><span class="wordmark small">dopa<span>fit</span><span class="wordmark-dot">●</span></span><span id="mode-label" class="mode-label">FREE FLOW</span><button id="finish" class="round-button" aria-label="運動を終了">✕</button></div>
+    <div id="stage" class="stage"><video id="camera" muted autoplay playsinline></video><canvas id="canvas" aria-label="ターゲットと手首のマーカー"></canvas><div id="stage-scrim" class="stage-scrim"><div id="stage-message" class="stage-message" role="status" aria-live="polite">準備しています</div><button id="resume" class="primary-button hidden">再開する →</button></div><span id="demo-badge" class="demo-badge hidden">カメラなしのデモ · 丸へドラッグ／タップ</span><span id="course-cue" class="course-cue"></span></div>
+    <div class="play-bottom"><div class="energy-top"><span>ENERGY <b id="energy">0</b></span><span id="cycle" class="cycle">BUILD THE BEAT</span><time id="timer">0:00</time></div><div class="energy-track"><span id="energy-fill"></span></div><div id="layers" class="layers" aria-label="音楽のレイヤー"><span>Kick</span><span>Hi-hat</span><span>Snare</span><span>Bass</span><span>Synth</span><span>Melody</span></div><div class="play-controls"><button id="pause" class="control-button">一時停止</button><button id="mute" class="control-button" aria-pressed="false">音 ON</button><label class="volume-label">音量 <input id="volume" type="range" min="0" max="100" value="55" aria-label="音量"></label><label class="motion-label"><input id="reduced" type="checkbox"> 演出ひかえめ</label></div><div class="play-privacy"><span>◈ 映像は保存・送信しません</span><span id="offline">オンライン</span></div></div>
+  </section>
+  <dialog id="result" class="modal"><p class="eyebrow">A LITTLE MORE JOY.</p><h2>いい動きでした！</h2><p>あなたの動きで、音楽が育ちました。</p><div class="result-stats"><div><b id="result-energy">0</b><span>ENERGY</span></div><div><b id="result-hits">0</b><span>HITS</span></div><div><b id="result-time">0:00</b><span>TIME</span></div></div><p id="saved-note" class="muted"></p><button id="result-close" class="primary-button">もうひと息、また動こう →</button></dialog>
+  <dialog id="history" class="modal"><p class="eyebrow">YOUR LITTLE WINS</p><h2>運動の記録</h2><div id="history-list"></div><div class="modal-actions"><button id="history-clear" class="text-button">記録を削除</button><button id="history-close" class="control-button">閉じる</button></div></dialog>
+  <details id="diagnostics" class="diagnostics hidden"><summary>端末内の診断</summary><pre id="metrics"></pre></details>
+  <div id="update-banner" class="update-banner hidden" role="status">新しいバージョンがあります。<button id="update">運動を終えて更新</button></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+.vercel/
+.env*
+!.env.example
+__pycache__/
+.cache/
+test-results/
+output/
+*.log
+.DS_Store
+.playwright-mcp/

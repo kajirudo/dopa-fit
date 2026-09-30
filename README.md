@@ -1,0 +1,88 @@
+# Dopa Fit / ドパフィット
+
+**Move your body. Build the beat.**
+
+スマートフォンのインカメラで身体をコントローラーにする、独立したOSSフィットネス実験。手を伸ばして丸に触れると、音楽・光・Particle・ENERGY・FEVERが育ちます。静的HTML・JavaScriptだけで動作し、ビルド・サーバーAPI・ログインは不要です。
+
+![Dopa Fitの応援ロボット](assets/characters/idle.png)
+
+現在は**公開候補版**です。実機iPhone Safari／Android Chromeの受け入れ試験と、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。デスクトップの自動検証を実機検証の代わりにはしていません。
+
+## Concept
+
+Movement creates reward. 身体を動かすほど音楽の編成と光の演出が豊かになります。累計ENERGYと解放済みの楽器は、休憩や認識が途切れても保持します。
+
+## Philosophy
+
+- No MISS
+- No penalty
+- No game over
+- Movement creates reward
+- Success makes the experience richer
+
+## How to Play
+
+1. スマートフォンを安定した場所に立て、縦画面でDopa Fitを開く。
+2. START MOVINGを押し、カメラを許可する。
+3. 肩と両手が画面内に映る位置まで離れ、3秒の準備を待つ。
+4. 左右の丸へ、好きな手をゆっくり伸ばす。速さや拍の正確さは必要ありません。
+5. 手の動きでビートを育てる。ENERGYが100増えるたびFEVERへ。
+6. ひと息つきたいときは一時停止。再開しても成果はそのまま。
+
+「カメラなしで試す」はドラッグ／タップで同じHIT・音楽を試すデモです。運動記録にもデモと表示します。3分コースではリーチ・両手上げ・ステップ・上下動・自由運動・クールダウンを案内します。上下動認識はフォーム採点ではありません。身体全体が映る配置が必要です。
+
+## Supported Devices
+
+主対象はiPhone Safari縦画面（iPhone 12相当以降を性能目安）とAndroid Chromeです。**確認済み実機の機種・OSはまだありません。** デスクトップChromiumでのテスト結果を`docs/verification.md`へ記録します。カメラはHTTPSまたはPCのlocalhostで動作します。LANの通常HTTPでは動作しません。
+
+## Local Development
+
+Python 3で、リポジトリのルートから起動します。
+
+```powershell
+python -m http.server 8000 --bind 127.0.0.1
+```
+
+PCで<http://localhost:8000/>を開きます。アプリの実行にNode.jsやnpm installは不要です。スマホ検証にはHTTPSを使用してください。
+
+開発時のURL：`?phase=1`でCamera → Pose → Wrist → HIT → Soundだけを評価できます。`?phase=2`でENERGY・音楽、`?phase=3`で演出、`?phase=4`以降で全身認識・履歴を追加。通常アクセスは全機能です。`?debug=1`で端末内のFPS・推論時間・粒子・発音数・Tensor数を表示します。診断値は送信しません。
+
+Node.js 22以降でロジック・配布物を検証します。
+
+```powershell
+npm test
+npm run audit:files
+```
+
+ブラウザ試験は開発専用のPlaywrightを使用します。静的アプリの依存ではありません。
+
+```powershell
+npm install
+npx playwright install chromium
+npm run test:browser
+npm run test:pwa
+```
+
+ブラウザ試験は自分で一時的なlocalhostサーバーを起動し、合成入力・偽カメラで検証します。画像や実写テスト映像を保存しません。結果と画面のスクリーンショットは無視対象の`test-results/`へ出力します。`DOPA_BASE_URL`指定時はそのURLを使います。
+
+依存の取得記録は[dependency-manifest](docs/dependency-manifest.json)、ライセンス取得元は[license-sources](docs/license-sources.json)、分類は[asset-audit](docs/asset-audit.md)。依存更新時だけ`python tools/fetch-deps.py`と`python tools/fetch-licenses.py`を実行し、条件と通信を再確認してください。
+
+## Privacy
+
+カメラ映像と姿勢データをブラウザ内で処理し、アプリからサーバーへ送信・保存しません。マイク・利用統計・分析SDKは使いません。設定と直近30回の集計だけを端末に保存し、記録画面で削除できます。ライブラリ・モデルも同じ配信元から取得します。ホスティングの通常アクセス通信はあります。[Privacy](PRIVACY.md)を参照してください。
+
+## Inspired by dopa-drill
+
+Dopa Fit is an independent open-source fitness experiment inspired by the positive-feedback design philosophy of [dopa-drill](https://github.com/grmchn/dopa-drill). It is not an official sequel or an affiliated project.
+
+dopa-drillの「成功で体験を豊かにする」という思想に敬意を表します。実装・UI・音楽パターン・マスコット・ロゴ・文章は新規制作し、dopa-drillのコードやブランド素材を同梱しません。[分類と確認根拠](docs/asset-audit.md)を参照してください。
+
+## License
+
+Dopa Fit独自コード・文書・独自SVGは[MIT](LICENSE)。独自生成キャラクターは[assetsの利用条件](assets/LICENSE.md)を適用します。第三者ライブラリ・モデル・WASMをMITへ付け替えるものではありません。Apache-2.0、MIT、BSD等の条件と全文は[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)と`licenses/`にまとめています。システムフォントのみ使用し、フォントや録音音源は配布しません。
+
+## Deployment
+
+VercelでGitHub `kajirudo/dopa-fit`をImportし、チーム`kajirudos-projects`、Production Branch `main`、Framework `Other`、Build Command空欄、Output Directory `.`を使用します。Functions・DB・分析SDKは不要です。[公開手順](docs/deployment.md)と[実機チェック](docs/release-checklist.md)を完了してからRelease Readyとします。
+
+PWAインストールは任意。キャッシュ保存完了後はオフラインでも動作します。更新は全タブで運動を終えて適用します。静的ファイル変更後は必ず`npm run audit:files`でキャッシュのハッシュを再生成してください。

@@ -1,0 +1,107 @@
+[
+  {
+    "project": "TensorFlow.js",
+    "license": "Apache-2.0",
+    "source": "https://raw.githubusercontent.com/tensorflow/tfjs/tfjs-v4.22.0/LICENSE",
+    "path": "licenses/tensorflow-js-LICENSE.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "project": "TensorFlow models",
+    "license": "Apache-2.0",
+    "source": "https://raw.githubusercontent.com/tensorflow/tfjs-models/pose-detection-v2.1.3/LICENSE",
+    "path": "licenses/tensorflow-models-LICENSE.txt",
+    "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+  },
+  {
+    "project": "XNNPACK",
+    "license": "BSD-3-Clause",
+    "source": "https://raw.githubusercontent.com/google/XNNPACK/5e8033a72a8d0f1c2b1f06e29137cc697c6b661d/LICENSE",
+    "path": "licenses/XNNPACK-LICENSE.txt",
+    "sha256": "63f519e15726f4c4f830bd958f694c84fecb4e0a4cacc527d2696bb71ef95ada"
+  },
+  {
+    "project": "FP16",
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/Maratyszcza/FP16/3c54eacb74f6f5e39077300c5564156c424d77ba/LICENSE",
+    "path": "licenses/FP16-LICENSE.txt",
+    "sha256": "17e4f539024be2749ee729d1e2f01d24cef12ece8c9bf18e91a4349be29c80bf"
+  },
+  {
+    "project": "FXdiv",
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/Maratyszcza/FXdiv/b408327ac2a15ec3e43352421954f5b1967701d1/LICENSE",
+    "path": "licenses/FXdiv-LICENSE.txt",
+    "sha256": "7cac00006125b1486a27e4801ed66357236e984c540bd323945ab7b66b078ec3"
+  },
+  {
+    "project": "pthreadpool",
+    "license": "BSD-2-Clause",
+    "source": "https://raw.githubusercontent.com/Maratyszcza/pthreadpool/545ebe9f225aec6dca49109516fac02e973a3de2/LICENSE",
+    "path": "licenses/pthreadpool-LICENSE.txt",
+    "sha256": "57814a606b4d0fb087d9a534919084b6c11b58a4174cb5a4aef200187780dc3a"
+  },
+  {
+    "project": "cpuinfo",
+    "license": "BSD-2-Clause",
+    "source": "https://raw.githubusercontent.com/pytorch/cpuinfo/ed8b86a253800bafdb7b25c5c399f91bff9cb1f3/LICENSE",
+    "path": "licenses/cpuinfo-LICENSE.txt",
+    "sha256": "8e7e60636c3aa0cb03571a1a841ce5697f9551ff92b3c426c2561613d15ade70"
+  },
+  {
+    "project": "clog (cpuinfo)",
+    "license": "BSD-2-Clause",
+    "source": "https://raw.githubusercontent.com/pytorch/cpuinfo/d5e37adf1406cf899d7d9ec1d317c47506ccb970/LICENSE",
+    "path": "licenses/clog-LICENSE.txt",
+    "sha256": "3a1fcacb580eebdadcdaa7c2041acd36e800d88dd249ea71fff1c9f116bccfd9"
+  },
+  {
+    "project": "psimd",
+    "license": "MIT",
+    "source": "https://raw.githubusercontent.com/Maratyszcza/psimd/072586a71b55b7f8c584153d223e95687148a900/LICENSE",
+    "path": "licenses/psimd-LICENSE.txt",
+    "sha256": "984ce1e0b8ee89d234e28b960381f240e03a07a8031f35012f9c3256f56964e2"
+  },
+  {
+    "project": "Emscripten",
+    "license": "MIT and NCSA; bundled notices",
+    "source": "https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/LICENSE",
+    "path": "licenses/emscripten-LICENSE.txt",
+    "sha256": "620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86"
+  },
+  {
+    "project": "musl libc",
+    "license": "MIT and bundled BSD notices",
+    "source": "https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libc/musl/COPYRIGHT",
+    "path": "licenses/musl-COPYRIGHT.txt",
+    "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+  },
+  {
+    "project": "long 4.0.0",
+    "license": "Apache-2.0",
+    "source": "https://registry.npmjs.org/long/-/long-4.0.0.tgz",
+    "path": "licenses/long-LICENSE.txt",
+    "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5"
+  },
+  {
+    "project": "seedrandom 3.0.5",
+    "license": "MIT",
+    "source": "https://registry.npmjs.org/seedrandom/-/seedrandom-3.0.5.tgz",
+    "path": "licenses/seedrandom-LICENSE.txt",
+    "sha256": "54624bc262234371635aacf512f779e523fc06412869108d0758b71569f7c41a"
+  },
+  {
+    "project": "tslib 2.4.0",
+    "license": "0BSD",
+    "source": "https://registry.npmjs.org/tslib/-/tslib-2.4.0.tgz",
+    "path": "licenses/tslib-CopyrightNotice.txt",
+    "sha256": "da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b"
+  },
+  {
+    "project": "tslib 2.4.0",
+    "license": "0BSD",
+    "source": "https://registry.npmjs.org/tslib/-/tslib-2.4.0.tgz",
+    "path": "licenses/tslib-LICENSE.txt",
+    "sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+  }
+]

@@ -1,0 +1,88 @@
+{
+  "project": "grmchn/dopa-drill",
+  "commit": "fdacd5fc8322f251f92ddc07f13ae85ccb2263dd",
+  "commitDate": "2026-09-28T14:39:17Z",
+  "source": "https://github.com/grmchn/dopa-drill/tree/fdacd5fc8322f251f92ddc07f13ae85ccb2263dd",
+  "licenseSha256": "23745340ba6fb2ce2ac156147a28b940ff8fa0380f353bf316e44eb1dad42a3c",
+  "referenceTextFiles": [
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/README.md",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/index.html",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/audio.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/bg.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/core.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/dopakichi.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/fx.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/growth.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/guide.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/main.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/problems.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/quests.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/scoring.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/session.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/skills.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/store.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/trophies.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/js/unlocks.js",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/app/style.css",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/docs/SPEC.md",
+    "dopa-drill-fdacd5fc8322f251f92ddc07f13ae85ccb2263dd/docs/curriculum.md"
+  ],
+  "method": "Compare independent src JS to all upstream JS by exact 30-token windows; authoring provenance and manual review remain required. Upstream archive processed in memory, no upstream art distributed.",
+  "comparisons": [
+    {
+      "path": "src/app.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/audio.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/calibration.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/camera.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/coordinates.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/effects.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/game.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/music.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/pose.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/renderer.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    },
+    {
+      "path": "src/storage.js",
+      "common30TokenWindows": 0,
+      "examples": []
+    }
+  ]
+}

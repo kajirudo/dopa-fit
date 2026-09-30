@@ -1,0 +1,5 @@
+* text=auto eol=lf
+vendor/** -text
+models/** -text
+licenses/** -text
+assets/** -text

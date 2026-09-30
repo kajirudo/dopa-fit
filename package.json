@@ -1,0 +1,13 @@
+{
+  "name": "dopa-fit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {"playwright": "1.62.1"},
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "audit:files": "node tools/audit-files.js",
+    "test:browser": "node tools/browser-check.cjs",
+    "test:pwa": "node tools/pwa-check.cjs"
+  }
+}

@@ -1,0 +1,28 @@
+# Third Party Notices
+
+Dopa Fitの独自部分はMITです。以下の第三者配布物にはそれぞれの条件が適用されます。取得版・SHA-256・配置先は[dependency-manifest](docs/dependency-manifest.json)、ライセンスの固定取得元・ハッシュは[license-sources](docs/license-sources.json)に記録しています。依存を改変した場合はこの文書も更新してください。
+
+| Project | Source / version | License | Used portion | Modification |
+|---|---|---|---|---|
+| dopa-drill | [grmchn/dopa-drill](https://github.com/grmchn/dopa-drill), 固定commitは監査台帳参照 | コードMIT、キャラクター／ロゴは例外、同梱フォントOFL | ポジティブフィードバックの設計思想のみ。コード・素材の同梱なし | 独自実装。派生コードなし |
+| TensorFlow.js core / converter / WebGL / WASM | [tensorflow/tfjs tfjs-v4.22.0](https://github.com/tensorflow/tfjs/tree/tfjs-v4.22.0) | Apache-2.0 | `vendor/tf-*.min.js`, WASM3ファイル | npmの配布バイトを変更せず同一配信元へ配置 |
+| TensorFlow.js CPU kernels | 上記の同じ版 | Apache-2.0 | WebGL／WASMバンドル内のヘルパー。CPU backendを別途起動しない | バンドル内に含まれるまま |
+| TensorFlow pose-detection | [tfjs-models pose-detection-v2.1.3](https://github.com/tensorflow/tfjs-models/tree/pose-detection-v2.1.3) | Apache-2.0 | `vendor/pose-detection.min.js`のMoveNet detector | 配布バイト変更なし。ローカルモデルURLを設定 |
+| MoveNet SinglePose Lightning v4 | [公式モデルカード](licenses/movenet-lightning-v4-model-card.md) | Apache-2.0（モデルカードで確認） | `models/movenet-lightning-v4/` model.jsonと2つの重み | 配布バイト変更なし |
+| long 4.0.0 | [npm](https://www.npmjs.com/package/long/v/4.0.0) | Apache-2.0 | TensorFlow.jsバンドル内の整数処理 | 変更なし |
+| seedrandom 3.0.5 | [davidbau/seedrandom](https://github.com/davidbau/seedrandom) | MIT | TensorFlow.jsバンドル内の乱数処理 | 変更なし |
+| tslib 2.4.0 | [Microsoft/tslib](https://github.com/microsoft/tslib) | BSD-0-Clause | pose-detectionのTypeScript runtime helpers | 変更なし |
+| XNNPACK | [google/XNNPACK](https://github.com/google/XNNPACK), 5e8033a | BSD-3-Clause | WASMに組み込まれる演算 | バイナリ変更なし |
+| FP16 / FXdiv / psimd | [Maratyszcza](https://github.com/Maratyszcza) | MIT | XNNPACKの半精度変換／整数除算／SIMDヘルパー | バイナリ変更なし |
+| pthreadpool | [Maratyszcza/pthreadpool](https://github.com/Maratyszcza/pthreadpool) | BSD-2-Clause | XNNPACKのスレッド処理。アプリは1threadに固定 | バイナリ変更なし |
+| cpuinfo / clog | [pytorch/cpuinfo](https://github.com/pytorch/cpuinfo) | BSD-2-Clause | XNNPACKのCPU情報／ログヘルパー | バイナリ変更なし |
+| Emscripten 3.1.28 | [emscripten-core](https://github.com/emscripten-core/emscripten/tree/3.1.28) | MIT / NCSA。全文にNode.js表示を含む | WASMの生成runtime glue | バイナリ変更なし |
+| musl libc | Emscriptenに同梱された版 | MITとCOPYRIGHT内の表示 | WASMのCライブラリ | バイナリ変更なし |
+
+Apache本文は[Apache-2.0](licenses/Apache-2.0.txt)、上流著作権は[tensorflow-js](licenses/tensorflow-js-LICENSE.txt)・[tensorflow-models](licenses/tensorflow-models-LICENSE.txt)。その他の全文は`licenses/*-LICENSE*.txt`、muslは`licenses/musl-COPYRIGHT.txt`。WASM構成の根拠はtfjs-v4.22.0の[WORKSPACE](https://github.com/tensorflow/tfjs/blob/tfjs-v4.22.0/WORKSPACE)と[BUILD.bazel](https://github.com/tensorflow/tfjs/blob/tfjs-v4.22.0/tfjs-backend-wasm/src/cc/BUILD.bazel)。推移依存も通知対象とし、ビルド専用テストツールはアプリに同梱しません。
+
+## CDN・候補・素材について
+
+npm registry／jsDelivr／TF Hubは開発時の取得経路です。一般利用時は同一配信元のローカルファイルを読み、CDNへ接続しません。CDNの使用とパッケージのライセンスは区別しています。
+
+MediaPipe Tasks、外部フォント、録音音源は採用していません。Pose DetectionのUMDファイルにMediaPipe対応コードは含まれますが、MediaPipeランタイム・モデルを取得／起動する経路は選択しません。音楽とHIT音はDopa Fit独自のWeb Audio合成です。ロゴ・アイコン・CSS背景は新規制作。AI生成キャラクターの制作記録は[asset-audit](docs/asset-audit.md)、素材の扱いは[assets/LICENSE](assets/LICENSE.md)を参照してください。

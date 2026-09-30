@@ -1,0 +1,135 @@
+[
+  {
+    "path": "vendor/tf-core.min.js",
+    "bytes": 294062,
+    "sha256": "0924438788ff7da57b14d0f7c45a05d81611a5a4b52653da6d065e86d348757c",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js",
+    "project": "@tensorflow/tfjs-core",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-core/-/tfjs-core-4.22.0.tgz",
+    "archiveMember": "package/dist/tf-core.min.js"
+  },
+  {
+    "path": "vendor/tf-converter.min.js",
+    "bytes": 322585,
+    "sha256": "0cf35a2982b637997e8cae097c991c0123b7d5393b3d45730aa732b907c6cd1b",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js",
+    "project": "@tensorflow/tfjs-converter",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-converter/-/tfjs-converter-4.22.0.tgz",
+    "archiveMember": "package/dist/tf-converter.min.js"
+  },
+  {
+    "path": "vendor/tf-backend-webgl.min.js",
+    "bytes": 399418,
+    "sha256": "b41fcbb4aee7721af0cc77ecfede60b44ad4ed6d5782a8392b84f774f4359a45",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js",
+    "project": "@tensorflow/tfjs-backend-webgl",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-backend-webgl/-/tfjs-backend-webgl-4.22.0.tgz",
+    "archiveMember": "package/dist/tf-backend-webgl.min.js"
+  },
+  {
+    "path": "vendor/tf-backend-wasm.min.js",
+    "bytes": 149861,
+    "sha256": "691bbec0ef8b5a7f17f212e9c5d85832030f90d030b46e99acb4dea1fb16f009",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.min.js",
+    "project": "@tensorflow/tfjs-backend-wasm",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-4.22.0.tgz",
+    "archiveMember": "package/dist/tf-backend-wasm.min.js"
+  },
+  {
+    "path": "vendor/tfjs-backend-wasm.wasm",
+    "bytes": 311123,
+    "sha256": "70a5d516060464e5269f01c74bac1772d6b8ab6cb612acf16b5cdaf61f78d892",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tfjs-backend-wasm.wasm",
+    "project": "@tensorflow/tfjs-backend-wasm",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-4.22.0.tgz",
+    "archiveMember": "package/dist/tfjs-backend-wasm.wasm"
+  },
+  {
+    "path": "vendor/tfjs-backend-wasm-simd.wasm",
+    "bytes": 424594,
+    "sha256": "77ebb28a6d34f371dbbf2086b7f2de8994acd8ea5a3cf1fa24d2c26c840cac7b",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tfjs-backend-wasm-simd.wasm",
+    "project": "@tensorflow/tfjs-backend-wasm",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-4.22.0.tgz",
+    "archiveMember": "package/dist/tfjs-backend-wasm-simd.wasm"
+  },
+  {
+    "path": "vendor/tfjs-backend-wasm-threaded-simd.wasm",
+    "bytes": 435643,
+    "sha256": "c052228d4bef185c27bbe59a9e029570c78bbb9f08b3cb46b597851650373de2",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tfjs-backend-wasm-threaded-simd.wasm",
+    "project": "@tensorflow/tfjs-backend-wasm",
+    "version": "4.22.0",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-4.22.0.tgz",
+    "archiveMember": "package/dist/tfjs-backend-wasm-threaded-simd.wasm"
+  },
+  {
+    "path": "vendor/pose-detection.min.js",
+    "bytes": 72653,
+    "sha256": "eedb38254421de21571e88db202382104b98f36de221a94f956d7bd01f43abcd",
+    "source": "https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js",
+    "project": "@tensorflow-models/pose-detection",
+    "version": "2.1.3",
+    "license": "Apache-2.0",
+    "acquisitionSource": "https://registry.npmjs.org/@tensorflow-models/pose-detection/-/pose-detection-2.1.3.tgz",
+    "archiveMember": "package/dist/pose-detection.min.js"
+  },
+  {
+    "path": "models/movenet-lightning-v4/model.json",
+    "bytes": 168013,
+    "sha256": "c65a3447162efa0c42af29498a4b151f4415b36ff3ae6fae2b28a32e840dcbfb",
+    "source": "https://tfhub.dev/google/tfjs-model/movenet/singlepose/lightning/4/model.json?tfjs-format=file",
+    "project": "MoveNet SinglePose Lightning",
+    "version": "4",
+    "license": "Apache-2.0"
+  },
+  {
+    "path": "models/movenet-lightning-v4/group1-shard1of2.bin",
+    "bytes": 4194304,
+    "sha256": "b42c3232bf13b0efc691d3f0693dd3fc74404f709b1deee0a271828af6dbbea2",
+    "source": "https://tfhub.dev/google/tfjs-model/movenet/singlepose/lightning/4/group1-shard1of2.bin?tfjs-format=file",
+    "project": "MoveNet SinglePose Lightning",
+    "version": "4",
+    "license": "Apache-2.0"
+  },
+  {
+    "path": "models/movenet-lightning-v4/group1-shard2of2.bin",
+    "bytes": 455912,
+    "sha256": "8253ab965aa3122c08f331777ca395ce9ca19bb9e7cb278b99de1c46dbdeb6dc",
+    "source": "https://tfhub.dev/google/tfjs-model/movenet/singlepose/lightning/4/group1-shard2of2.bin?tfjs-format=file",
+    "project": "MoveNet SinglePose Lightning",
+    "version": "4",
+    "license": "Apache-2.0"
+  },
+  {
+    "path": "licenses/movenet-lightning-v4-model-card.md",
+    "bytes": 5255,
+    "sha256": "3e23af460d22a92cb262cb167039db1652ea8acc59e921a5957a55f8bb3510a3",
+    "source": "https://raw.githubusercontent.com/tensorflow/tfhub.dev/master/assets/docs/google/models/movenet/singlepose/lightning/tfjs/4.md",
+    "project": "MoveNet SinglePose Lightning",
+    "version": "4",
+    "license": "Apache-2.0"
+  },
+  {
+    "path": "licenses/Apache-2.0.txt",
+    "bytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/tensorflow/tfjs/master/LICENSE",
+    "project": "Apache License",
+    "version": "2.0",
+    "license": "Apache-2.0"
+  }
+]
