@@ -48,6 +48,8 @@ HTML・CSSは独自2カラムのタイトル画面、カメラステージ、PWA
 
 MoveNetはライブラリと別にモデルカードを確認。WASMはtfjs固定版のWORKSPACE／BUILDからXNNPACK、FP16、FXdiv、pthreadpool、cpuinfo、clog、psimdとEmscriptenを追跡。Emscriptenの同梱musl表示を追加しました。MITの独自コードとこれらの配布条件を混同しません。上流の配布バンドルを改変していないため、変更表示は「同一配信元へ配置・アプリ側のモデルURL設定」とします。
 
+さらに、Emscriptenのsystem librariesのLLVM compiler-rt／libc++／libc++abi LICENSE全文（Apache-2.0 WITH LLVM-exceptionと追加表示）を記録・同梱。リンク時に除去される部分を含め保守的に通知しています。allocatorはtfjsのBUILDでemmallocと確認しました。これらの再配布表示も独自MITとは別に維持します。
+
 開発専用Playwright 1.62.1はApache-2.0。npm取得される開発パッケージはWebアプリへ同梱しません。CIのGitHub Actionsは開発ツールです。
 
 ## 生成素材の制作記録

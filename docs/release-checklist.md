@@ -51,7 +51,7 @@ WASMはWebGL失敗時のみ起動します。PWAの初回バックグラウン�
 - [x] model.json・重み・WASMの出所とライセンスを記録
 - [x] 映像・骨格・利用統計のアップロード実装なし
 - [x] クリーンなmainの取得・CI成功
-- [x] GitHub一般公開。候補タグ `v0.1.0-rc.1`
+- [x] GitHub一般公開。候補タグ `v0.1.0-rc.2`
 - [x] GitHub main → Vercel連携でProduction配信を確認
 - [ ] 本番HTTPS → START → Camera → Pose → HIT → Audio → ENERGY／FEVER → 終了・再開をiPhone／Androidで確認
 - [x] 未ログインDesktop Chromiumで本番の通信・Console確認

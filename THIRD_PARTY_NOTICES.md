@@ -18,8 +18,11 @@ Dopa Fitの独自部分はMITです。以下の第三者配布物にはそれぞ
 | cpuinfo / clog | [pytorch/cpuinfo](https://github.com/pytorch/cpuinfo) | BSD-2-Clause | XNNPACKのCPU情報／ログヘルパー | バイナリ変更なし |
 | Emscripten 3.1.28 | [emscripten-core](https://github.com/emscripten-core/emscripten/tree/3.1.28) | MIT / NCSA。全文にNode.js表示を含む | WASMの生成runtime glue | バイナリ変更なし |
 | musl libc | Emscriptenに同梱された版 | MITとCOPYRIGHT内の表示 | WASMのCライブラリ | バイナリ変更なし |
+| LLVM compiler-rt / libc++ / libc++abi | Emscripten 3.1.28に同梱された版 | Apache-2.0 WITH LLVM-exceptionと同梱表示 | WASM toolchainのコンパイラ支援／C++標準・ABIライブラリ。リンクで除去される部分も含め保守的に表示 | バイナリ変更なし。各LICENSE全文を同梱 |
 
 Apache本文は[Apache-2.0](licenses/Apache-2.0.txt)、上流著作権は[tensorflow-js](licenses/tensorflow-js-LICENSE.txt)・[tensorflow-models](licenses/tensorflow-models-LICENSE.txt)。その他の全文は`licenses/*-LICENSE*.txt`、muslは`licenses/musl-COPYRIGHT.txt`。WASM構成の根拠はtfjs-v4.22.0の[WORKSPACE](https://github.com/tensorflow/tfjs/blob/tfjs-v4.22.0/WORKSPACE)と[BUILD.bazel](https://github.com/tensorflow/tfjs/blob/tfjs-v4.22.0/tfjs-backend-wasm/src/cc/BUILD.bazel)。推移依存も通知対象とし、ビルド専用テストツールはアプリに同梱しません。
+
+LLVMの例外条件と追加表示は[compiler-rt](licenses/compiler-rt-LICENSE.txt)・[libc++](licenses/libcxx-LICENSE.txt)・[libc++abi](licenses/libcxxabi-LICENSE.txt)に保持しています。これらを独自部分のMITへ付け替えません。WASMのallocatorはBUILDの`MALLOC=emmalloc`で確認し、EmscriptenのMIT/NCSA表示に含めます。dlmallocを使用中としては記載しません。
 
 ## CDN・候補・素材について
 

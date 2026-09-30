@@ -1,5 +1,5 @@
 {
-  "version": "8df046d0806b9179",
+  "version": "ebb1b785a3acd85e",
   "files": [
     {
       "path": "LICENSE",
@@ -13,8 +13,8 @@
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",
-      "bytes": 4660,
-      "sha256": "674f1fd56d047118d4c56bd7ebf2a8da12fc38a4f56272891542eaa45206c132"
+      "bytes": 5396,
+      "sha256": "f492ef9a79caa02b4cf2ca45b059203222e989c0636a917e200d0631e3bef53b"
     },
     {
       "path": "assets/LICENSE.md",
@@ -82,6 +82,11 @@
       "sha256": "3a1fcacb580eebdadcdaa7c2041acd36e800d88dd249ea71fff1c9f116bccfd9"
     },
     {
+      "path": "licenses/compiler-rt-LICENSE.txt",
+      "bytes": 16708,
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+    },
+    {
       "path": "licenses/cpuinfo-LICENSE.txt",
       "bytes": 1424,
       "sha256": "8e7e60636c3aa0cb03571a1a841ce5697f9551ff92b3c426c2561613d15ade70"
@@ -90,6 +95,16 @@
       "path": "licenses/emscripten-LICENSE.txt",
       "bytes": 5093,
       "sha256": "620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86"
+    },
+    {
+      "path": "licenses/libcxx-LICENSE.txt",
+      "bytes": 16703,
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+    },
+    {
+      "path": "licenses/libcxxabi-LICENSE.txt",
+      "bytes": 16706,
+      "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
     },
     {
       "path": "licenses/long-LICENSE.txt",

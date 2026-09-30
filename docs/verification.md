@@ -10,7 +10,7 @@ Windows、Node.js 22、Playwright 1.62.1／Chromium 151.0.7922.34。独立した
 
 ブラウザ試験で最大24voice、74AudioNodeを観測し、音楽を止めると稼働voiceは0。通常経路のConsole error・未処理例外は0。すべての観測リクエストは同一localhost origin、GETのみ、外部通信0、本文付きアップロード0でした。キャッシュ保存時のWASM取得も含めて確認しています。
 
-配布キャッシュ合計は約7.72MiB（アプリ・素材・依存・モデル・ライセンス込み）。これはファイルサイズの合計で、空キャッシュ起動時の実転送量やロード時間の測定とは異なります。PWA保存と初回モデル取得が重なる場合の重複通信を含む実転送量は実機の通信条件で計測が必要です。
+配布キャッシュ合計は約7.77MiB（アプリ・素材・依存・モデル・ライセンス込み）。これはファイルサイズの合計で、空キャッシュ起動時の実転送量やロード時間の測定とは異なります。PWA保存と初回モデル取得が重なる場合の重複通信を含む実転送量は実機の通信条件で計測が必要です。
 
 ## 確認の限界
 
@@ -36,4 +36,6 @@ GitHub公開：https://github.com/kajirudo/dopa-fit 。初回監査コミット 
 
 未ログインのChromiumから本番URLのブラウザ11項目を再実行し、すべて成功。CameraとローカルMoveNetの推論完了、合成骨格のHIT、デモのAudio／ENERGY／FEVER、カメラ停止、履歴、オフラインを確認しました。通信originは `https://dopa-fit.vercel.app` だけ、GETだけ、外部通信・アップロード・Console errorは0です。WASMのContent-Typeはapplication/wasm、モデルはapplication/json、HTTPS／CSP／Permissions-Policy／nosniffも確認。物理端末での試験の代用ではありません。
 
-公開候補のタグは `v0.1.0-rc.1`。実機ゲート未完了のため安定版・Release Readyとは扱いません。
+公開候補のタグは `v0.1.0-rc.2`。実機ゲート未完了のため安定版・Release Readyとは扱いません。
+
+最終監査でWASMのLLVM compiler-rt／libc++／libc++abiの条件・全文も追加しました。rc.2はこの追加表示を含む候補で、rc.1を置き換えます。ライブラリのバイトやゲーム実装は変更していません。

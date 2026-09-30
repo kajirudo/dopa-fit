@@ -77,6 +77,27 @@
     "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
   },
   {
+    "project": "LLVM compiler-rt",
+    "license": "Apache-2.0 WITH LLVM-exception and bundled notices",
+    "source": "https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/compiler-rt/LICENSE.TXT",
+    "path": "licenses/compiler-rt-LICENSE.txt",
+    "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+  },
+  {
+    "project": "LLVM libc++",
+    "license": "Apache-2.0 WITH LLVM-exception and bundled notices",
+    "source": "https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libcxx/LICENSE.TXT",
+    "path": "licenses/libcxx-LICENSE.txt",
+    "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+  },
+  {
+    "project": "LLVM libc++abi",
+    "license": "Apache-2.0 WITH LLVM-exception and bundled notices",
+    "source": "https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libcxxabi/LICENSE.TXT",
+    "path": "licenses/libcxxabi-LICENSE.txt",
+    "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
+  },
+  {
     "project": "long 4.0.0",
     "license": "Apache-2.0",
     "source": "https://registry.npmjs.org/long/-/long-4.0.0.tgz",

@@ -16,6 +16,9 @@ sources = [
  ('psimd','MIT','https://raw.githubusercontent.com/Maratyszcza/psimd/072586a71b55b7f8c584153d223e95687148a900/LICENSE','psimd-LICENSE.txt'),
  ('Emscripten','MIT and NCSA; bundled notices','https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/LICENSE','emscripten-LICENSE.txt'),
  ('musl libc','MIT and bundled BSD notices','https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libc/musl/COPYRIGHT','musl-COPYRIGHT.txt'),
+ ('LLVM compiler-rt','Apache-2.0 WITH LLVM-exception and bundled notices','https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/compiler-rt/LICENSE.TXT','compiler-rt-LICENSE.txt'),
+ ('LLVM libc++','Apache-2.0 WITH LLVM-exception and bundled notices','https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libcxx/LICENSE.TXT','libcxx-LICENSE.txt'),
+ ('LLVM libc++abi','Apache-2.0 WITH LLVM-exception and bundled notices','https://raw.githubusercontent.com/emscripten-core/emscripten/3.1.28/system/lib/libcxxabi/LICENSE.TXT','libcxxabi-LICENSE.txt'),
 ]
 def save(project,license_id,url,name,data):
     path='licenses/'+name
