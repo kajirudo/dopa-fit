@@ -8,17 +8,23 @@ export class MusicEngine {
     const ctx = this.audio.ctx; if (!ctx || ctx.state !== 'running') return;
     if (this.nextTime < ctx.currentTime - .1) { this.step = Math.ceil(this.step / 16) * 16; this.nextTime = ctx.currentTime + .04; this.origin=this.nextTime-this.step*(60/112/4); }
     while (this.nextTime < ctx.currentTime + .12) {
-      if (this.step % 16 === 0) { const state = this.getState(); this.layer = state.layer; this.cycle = state.cycle; }
+      if (this.step % 16 === 0) { const state = this.getState(); this.layer = state.layer; this.cycle = state.cycle; this.feverLevel = state.feverLevel || 1; }
       this.schedule(this.step, this.nextTime); this.nextTime += 60 / 112 / 4; this.step++;
     }
   }
   schedule(step, t) {
     const s = step % 16, bar = Math.floor(step / 16), a = this.audio, rest = this.cycle === 'REST', fever = this.cycle === 'FEVER';
+    const level = fever ? Math.min(5,Math.max(1,this.feverLevel || 1)) : 0;
     if (s % 4 === 0) a.play('kick', t);
-    if (this.layer >= 1 && s % (rest ? 4 : 2) === 0) a.play('hat', t);
+    if (this.layer >= 1 && s % (rest ? 4 : level>=2 ? 1 : 2) === 0) a.play('hat', t);
     if (this.layer >= 2 && (s === 4 || s === 12)) { a.play('snare', t); if (fever) a.play('snare', t + .025); }
     if (this.layer >= 3 && s % (fever ? 2 : 4) === 0) a.play('bass', t, [36, 45, 40, 43][bar % 4]);
     if (!rest && this.layer >= 4 && s % 4 === 2) a.play('synth', t, [60, 64, 67, 69][(bar + s / 2) % 4] + (fever ? 12 : 0));
     if (!rest && this.layer >= 5 && s % (fever ? 1 : 4) === 0) a.play('melody', t, [72, 76, 79, 81, 79, 76, 74, 72][(fever ? step : step / 2) % 8]);
+    if (level>=2 && this.layer>=2 && s===14 && bar%2===1) a.play('snare',t);
+    if (level>=3 && this.layer>=4 && s%8===0) for(const note of [60,64,67]) a.play('synth',t,note);
+    if (level>=4 && this.layer>=3 && [3,11].includes(s)) a.play('bass',t,[43,45][bar%2]);
+    if (level>=4 && this.layer>=4 && s%8===6) for(const note of [74,79]) a.play('synth',t,note);
+    if (level>=5 && this.layer>=5 && [7,15].includes(s)) a.play('melody',t,[84,88,91,96][(bar+s)%4]);
   }
 }

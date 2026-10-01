@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { feverStage } from './fever.js';
 // Independent synthesis implementation; no recorded sound assets.
 export const midiHz = midi => 440 * 2 ** ((midi - 69) / 12);
 export class AudioManager {
@@ -82,11 +83,17 @@ export class AudioManager {
     let ended = 0;
     for (const source of sources) { source.onended = () => { if (++ended === sources.length) { nodes.forEach(n => n.disconnect()); this.voices.delete(voice); } }; source.start(t); source.stop(t + duration + .02); }
   }
-  hit(id, fever = false, intensity = 1) { if (this.ctx) this.play('hit', this.ctx.currentTime, [72, 76, 79][id % 3] + (fever ? 12 : 0), true, intensity); }
+  hit(id, fever = false, intensity = 1) {
+    if (!this.ctx) return;
+    const level = fever === true ? 1 : Math.min(5,Math.max(0,Number(fever)||0));
+    const notes = [[72,76,79],[84,88,91],[86,91,93],[88,91,96],[91,93,96],[84,91,96]];
+    this.play('hit',this.ctx.currentTime,notes[level][id%3],true,intensity);
+    if(level>=3) this.play('melody',this.ctx.currentTime,[84,88,91][id%3]);
+  }
   move() { if (this.ctx) this.play('move', this.ctx.currentTime, [72, 74, 76, 79, 81, 79, 76, 74][this.moveStep++ % 8], true); }
-  celebrate(kind) {
+  celebrate(kind, level = 1) {
     if (!this.ctx || !['unlock', 'rally', 'fever'].includes(kind)) return;
-    const notes = kind === 'fever' ? [72, 76, 79, 84] : kind === 'unlock' ? [76, 79, 84] : [79, 81];
+    const notes = kind === 'fever' ? feverStage(level).notes : kind === 'unlock' ? [76, 79, 84] : [79, 81];
     notes.forEach((note, i) => this.play('melody', this.ctx.currentTime + i * .085, note, true));
   }
   stopVoices() { for (const voice of this.voices) { for (const source of voice.sources) { try { source.stop(); } catch {} } voice.nodes.forEach(n => n.disconnect()); } this.voices.clear(); }

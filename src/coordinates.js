@@ -12,7 +12,7 @@ export function cameraCrop(vw, vh, w, h, fit = 'cover') {
   if (!rect) return null;
   return { x: Math.max(0, -rect.x / rect.width * vw), y: Math.max(0, -rect.y / rect.height * vh), width: Math.min(vw, w / rect.width * vw), height: Math.min(vh, h / rect.height * vh) };
 }
-export function mapPose(frame, width, height, now, fit = 'contain') {
+export function mapPose(frame, width, height, now, fit = 'contain', bodyMode = 'full') {
   const sourceRect = viewport(frame.width, frame.height, width, height, fit);
   if (!sourceRect) return null;
   const rect = { x: Math.max(0, sourceRect.x), y: Math.max(0, sourceRect.y), width: Math.min(width, sourceRect.width), height: Math.min(height, sourceRect.height) };
@@ -22,7 +22,8 @@ export function mapPose(frame, width, height, now, fit = 'contain') {
     const x = sourceRect.x + (1 - p.x) * sourceRect.width, y = sourceRect.y + p.y * sourceRect.height;
     const inside = x >= rect.x && x <= rect.x+rect.width && y >= rect.y && y <= rect.y+rect.height;
     const usable = fresh && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
-    points[name] = { x, y, score: p.score, valid: usable && inside && p.score >= .5,
+    const anchor = bodyMode === 'upper' && ['left_shoulder','right_shoulder','left_elbow','right_elbow'].includes(name);
+    points[name] = { x, y, score: p.score, valid: usable && (inside || anchor) && p.score >= .5,
       handValid: usable && inside && p.score >= .3 };
   }
   return { id: frame.id, capturedAt: frame.capturedAt, points, rect, sourceRect };

@@ -6,9 +6,15 @@ export const THRESHOLDS = [0, 10, 25, 45, 70, 100];
 export const BAR_SECONDS = 60 / 112 * 4;
 export const BEAT_MS = 60 / 112 * 1000;
 export const targetRadius = shoulder => clamp(.32 * shoulder, 34, 60);
+export function targetLayout(calibration) {
+  const { shoulder, rect } = calibration;
+  const radius = Math.min(targetRadius(shoulder), Math.max(20,Math.min(rect.width,rect.height)*.13));
+  const span = Math.min(shoulder, Math.max(24,(rect.width-2*radius-32)/1.8), Math.max(24,(rect.height-2*radius-32)/2.4));
+  return { radius, span };
+}
 // Four heights on each side. These are destinations, not eight simultaneous targets.
 export function targetPositions(calibration, reach = 'wide') {
-  const { center: c, shoulder: s, rect } = calibration, radius = targetRadius(s);
+  const { center: c, rect } = calibration, { radius, span: s } = targetLayout(calibration);
   const scale = reach === 'small' ? .68 : 1, positions = [];
   for (const side of [-1, 1]) for (const [height, offset] of [-.75, -.1, .55, 1.15].entries()) {
     const point = { lane: side < 0 ? 0 : 1, height, radius,
@@ -35,9 +41,8 @@ export class TargetManager {
     this.place();
   }
   place() {
-    const { center: c, shoulder: s } = this.calibration;
-    const radius = targetRadius(s);
-    this.targets = [-1, 1].map((side, index) => ({ id: index, x: c.x + side * .9 * s, y: c.y + .25 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
+    const { center: c, rect } = this.calibration, { radius, span: s } = targetLayout(this.calibration);
+    this.targets = [-1, 1].map((side, index) => ({ id: index, x: clamp(c.x + side * .9 * s,rect.x+radius+8,rect.x+rect.width-radius-8), y: clamp(c.y + .25 * s,rect.y+radius+8,rect.y+rect.height-radius-8), radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
     if (this.dynamic) for (const target of this.targets) Object.assign(target, this.destination(target.id, 0));
     for (const target of this.targets) { target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
   }
@@ -116,14 +121,15 @@ export class TargetManager {
   }
 }
 export class EnergySystem {
-  constructor() { this.energy = 0; this.hits = 0; this.moves = 0; this.flow = 0; this.heat = 0; this.cycle = 'BUILD'; this.lastFeverEnergy = 0; this.phaseAt = 0; }
+  constructor() { this.energy = 0; this.hits = 0; this.moves = 0; this.flow = 0; this.heat = 0; this.cycle = 'BUILD'; this.lastFeverEnergy = 0; this.phaseAt = 0; this.feverLevel = 0; }
+  get nextFeverLevel() { return Math.min(5,this.feverLevel+1); }
   reward(kind) { this.energy += kind === 'hit' || kind === 'exercise' ? 5 : 1; if (kind === 'hit') this.hits++; else this.moves++; this.heat = Math.min(1, this.heat + .12); }
   get layer() { return THRESHOLDS.reduce((level, value, i) => this.energy >= value ? i : level, 0); }
   tick(seconds, dt, canStartFever = true) {
     this.heat = Math.max(0, this.heat - dt * .045);
     if (this.cycle === 'FEVER' && seconds - this.phaseAt >= 8 * BAR_SECONDS - 1e-6) { this.cycle = 'REST'; this.phaseAt = seconds; }
     else if (this.cycle === 'REST' && seconds - this.phaseAt >= 4 * BAR_SECONDS - 1e-6) this.cycle = 'BUILD';
-    if (canStartFever && this.cycle === 'BUILD' && this.energy - this.lastFeverEnergy >= 100) { this.cycle = 'FEVER'; this.phaseAt = seconds; this.lastFeverEnergy = this.energy; }
+    if (canStartFever && this.cycle === 'BUILD' && this.energy - this.lastFeverEnergy >= 100) { this.cycle = 'FEVER'; this.phaseAt = seconds; this.lastFeverEnergy += 100; this.feverLevel = this.nextFeverLevel; }
   }
 }
 export class MovementTracker {
@@ -154,7 +160,7 @@ export class WorkoutTracker {
     const p = pose.points, s = calibration.shoulder;
     const shoulders = p.left_shoulder?.valid && p.right_shoulder?.valid;
     const hands = shoulders && p.left_wrist?.valid && p.right_wrist?.valid;
-    const hips = shoulders && p.left_hip?.valid && p.right_hip?.valid;
+    const hips = calibration.bodyMode !== 'upper' && shoulders && p.left_hip?.valid && p.right_hip?.valid;
     if (!hands) { delete this.active.raise; this.armed.raise = false; }
     if (!hips) { this.hipBase = null; delete this.active.step; delete this.active.squat; this.armed.step = false; this.armed.squat = false; }
     const events = [];

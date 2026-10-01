@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { feverStage } from './fever.js';
 // One-shot celebrations follow cumulative rewards; rest never resets a streak.
 export class FeedbackDirector {
   constructor() { this.reset(); }
@@ -10,11 +11,11 @@ export class FeedbackDirector {
       cues.push({ kind: 'rally', title: `${state.hits} HITS!`, subtitle: 'いい動き！音がどんどん育ってる', duration: 1800, priority: 2 });
       while (this.nextRally <= state.hits) this.nextRally += this.nextRally === 5 ? 5 : this.nextRally < 50 ? 10 : 25;
     }
-    if (state.cycle === 'FEVER' && this.cycle !== 'FEVER') cues.push({ kind: 'fever', title: 'FEVER!', subtitle: '全身で、ビートをつくろう！', duration: 3000, priority: 5 });
+    if (state.cycle === 'FEVER' && this.cycle !== 'FEVER') { const stage=feverStage(state.feverLevel);cues.push({ kind: 'fever', level: stage.level, title: `${stage.name}!`, subtitle: `FEVER ${stage.level} / 5 · ${stage.level===5?'最高のビート！':'音と光が、もう一段育った！'}`, duration: 3000, priority: 5 }); }
     if (state.cycle === 'REST' && this.cycle !== 'REST') cues.push({ kind: 'rest', title: 'NICE FLOW', subtitle: 'ひと息ついても、成果はそのまま', duration: 2000, priority: 4 });
     if (state.energy - state.lastFeverEnergy >= 75 && state.cycle !== 'FEVER' && this.nearCycle !== state.lastFeverEnergy) {
       this.nearCycle = state.lastFeverEnergy;
-      cues.push({ kind: 'near', title: 'FEVER IS COMING', subtitle: 'もう少しで、世界が変わる', duration: 1900, priority: 1 });
+      cues.push({ kind: 'near', title: `${feverStage(state.nextFeverLevel).name} IS COMING`, subtitle: `次はFEVER ${state.nextFeverLevel || 1} / 5`, duration: 1900, priority: 1 });
     }
     this.layer = state.layer; this.cycle = state.cycle;
     const cue = cues.sort((a, b) => b.priority - a.priority)[0] || null;

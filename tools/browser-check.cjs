@@ -33,6 +33,8 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({path:path.join(root,'test-results/mobile.png'),fullPage:true}); check('Landing and 390px portrait layout');
+    await page.locator('#body-mode').selectOption('full');assert.equal(await page.evaluate(()=>window.testApp.bodyMode),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'contain');
+    await page.locator('#body-mode').selectOption('upper');assert.equal(await page.locator('#camera-fit').inputValue(),'cover');check('Upper / full-body modes selectable before START with suitable camera framing');
     await page.locator('#demo').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING');
     assert.equal(await page.evaluate(()=>window.testApp.audio.ready),true);
     // Free movement receives a softer note even when it never enters a circle.
@@ -86,6 +88,18 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.equal(await page.locator('#rally-count').textContent(),String(rewards.hits));
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
     assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
+    for(let level=2;level<=5;level++) {
+      await page.evaluate(async()=>{const a=window.testApp,{BAR_SECONDS}=await import('./src/game.js'),e=a.game.energy;
+        // Synthetic time advances test all five stages without claiming a physical session.
+        e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+8*BAR_SECONDS;e.tick(a.seconds,0);const calm=a.feedbackDirector.update(e);if(calm)a.celebrate(calm,performance.now());
+        a.seconds=e.phaseAt+4*BAR_SECONDS;e.tick(a.seconds,0);const cue=a.feedbackDirector.update(e);if(cue)a.celebrate(cue,performance.now());a.updateUI(performance.now());});
+      await page.waitForFunction(level=>window.testApp.game.energy.feverLevel===level&&window.testApp.music.feverLevel===level,level,{timeout:4000});
+      assert.ok((await page.locator('#cycle').textContent()).includes(`${level}/5`));
+      assert.equal(await page.locator('#fever-levels .on').count(),level);
+      assert.ok(await page.evaluate(()=>window.testApp.renderer.particles.parts.length<=240&&window.testApp.audio.voices.size<=24&&window.testApp.audio.nodeCount<=160));
+      if(level===3||level===5)await page.screenshot({path:path.join(root,`test-results/fever-${level}.png`)});
+    }
+    assert.ok((await page.locator('#cycle').textContent()).includes('SUPERNOVA'));check('Five named FEVER stages update music / color / bounded effects and preserve unlocked progress');
     await page.locator('#pause').click();
     await page.locator('#reach').selectOption('small');
     await page.screenshot({path:path.join(root,'test-results/settings.png')});
@@ -94,10 +108,12 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('reduced-effects')),true);
     await page.locator('#reduced').uncheck();check('FEVER celebration / cumulative HITS / bounded effects / immediate motion reduction');
     assert.equal(await state(),'PAUSED');
+    const retained=await page.evaluate(()=>window.testApp.game.energy.feverLevel);assert.equal(retained,5);
     await page.locator('#settings-close').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING'); assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=rewards.energy); check('Pause / recalibrate / resume preserves ENERGY');
     assert.equal(await page.evaluate(()=>window.testApp.store.read('settings',{}).reach),'small');
     assert.ok(await page.evaluate(()=>window.testApp.game.targets.positions.filter(p=>p.lane===0).every(p=>p.x>window.testApp.game.calibration.center.x-window.testApp.game.calibration.shoulder*.7)));
     check('Compact reach persists and applies on resume without losing ENERGY');
+    assert.equal(await page.evaluate(()=>window.testApp.game.energy.feverLevel),retained);
     const voiceStats=await page.evaluate(async()=>{const a=window.testApp.audio;for(let i=0;i<100;i++)a.hit(i);const peak={voices:a.voices.size,nodes:a.nodeCount};window.testApp.music.stop();await new Promise(r=>setTimeout(r,700));return{...peak,after:a.voices.size};});
     assert.ok(voiceStats.voices<=24&&voiceStats.nodes<=160);assert.equal(voiceStats.after,0);results.voiceStats=voiceStats;check('Audio cap and complete node cleanup');
     await page.locator('#pause').click();await page.locator('#finish').click(); await page.locator('#result').waitFor();
@@ -113,7 +129,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     }); assert.equal(inference.completed,true);assert.ok(inference.cropHeight>0&&inference.cropHeight<=640);assert.ok([0,17].includes(inference.keypoints));assert.equal(inference.camera,'live');results.inference=inference;check('getUserMedia → local MoveNet inference (fake video may contain no person)');
     const cover=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera'),{viewport}=await import('./src/coordinates.js');return{fit:getComputedStyle(v).objectFit,source:viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover'),width:a.renderer.width,height:a.renderer.height};});
     assert.equal(cover.fit,'cover');assert.ok(cover.source.width>=cover.width&&cover.source.height>=cover.height);assert.ok(cover.source.x<0);
-    await page.screenshot({path:path.join(root,'test-results/camera-cover.png')});check('Portrait camera fills stage; real model processes the visible crop capped at 640px');
+    await page.screenshot({path:path.join(root,'test-results/camera-cover.png')});check('Portrait camera fills stage; full-mode inference crop remains capped at 640px');
     // Run calibration and contact through actual AppController with a clearly synthetic skeleton.
     const integrated=await page.evaluate(async()=>{
       const a=window.testApp;a.inferenceInterval=Infinity;a.generation++;cancelAnimationFrame(a.raf);while(a.pose.busy)await new Promise(r=>setTimeout(r,10));a.beginCalibration();const v=document.getElementById('camera');const {viewport}=await import('./src/coordinates.js');const source=viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover');const norm=(x,y)=>({x:1-(x-source.x)/source.width,y:(y-source.y)/source.height,score:1});const shoulders={left_shoulder:norm(a.renderer.width*.36,a.renderer.height*.4),right_shoulder:norm(a.renderer.width*.64,a.renderer.height*.4)};
@@ -133,7 +149,27 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
       const hand=a.mapped.hands.left_wrist;send(0,0,0);a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
       return{added:a.game.energy.hits-initial,held:a.mapped.hands.left_wrist?.held,radius:hand.radius,visible:!!a.renderer.markers.left_wrist};});
     assert.equal(assist.added,1);assert.equal(assist.held,true);assert.equal(assist.visible,true);assert.ok(assist.radius>=20);check('Low-confidence near-edge HIT and brief display-only hand retention through AppController');
+    const near=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera');a.beginCalibration();
+      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.4,score:1},right_shoulder:{x:.9,y:.4,score:1},left_wrist:{x:.47,y:.65,score:1},right_wrist:{x:.53,y:.65,score:1}}});await new Promise(r=>setTimeout(r,50));}
+      if(a.state!=='COUNTDOWN')throw Error('Close upper-body calibration failed');const {viewport}=await import('./src/coordinates.js'),c=a.game.calibration,s=viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover');
+      a.state='PLAYING';document.getElementById('stage-scrim').classList.add('hidden');const t=a.game.targets.targets[0],norm=(x,y)=>({x:1-(x-s.x)/s.width,y:(y-s.y)/s.height,score:1});
+      const send=(x,y)=>{const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.4,score:1},right_shoulder:{x:.9,y:.4,score:1},left_wrist:norm(x,y)}});};
+      send(c.center.x,a.renderer.height*.85);send(t.x,t.y);a.updateUI(performance.now());a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
+      return{mode:c.bodyMode,shoulder:c.shoulder,width:a.renderer.width,hits:a.game.energy.hits,level:a.game.energy.feverLevel,inside:a.game.targets.positions.every(p=>p.x-p.radius>=0&&p.x+p.radius<=a.renderer.width&&p.y-p.radius>=0&&p.y+p.radius<=a.renderer.height)};});
+    assert.equal(near.mode,'upper');assert.ok(near.shoulder>near.width);assert.ok(near.hits>=1&&near.inside);results.closeUpperBody=near;
+    await page.screenshot({path:path.join(root,'test-results/close-upper.png')});check('Synthetic close upper body wider than portrait crop → calibration → reachable target → HIT');
     await page.locator('#pause').click();assert.equal(await page.evaluate(()=>window.testApp.camera.stream),null);
+    const preserved=await page.evaluate(()=>({energy:window.testApp.game.energy.energy,level:window.testApp.game.energy.feverLevel}));
+    await page.locator('#body-mode-settings').selectOption('full');assert.equal(await page.locator('#body-mode').inputValue(),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'contain');
+    await page.locator('#settings-close').click();await page.waitForFunction(()=>window.testApp.state==='CALIBRATING');
+    const full=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera');cancelAnimationFrame(a.raf);a.generation++;while(a.pose.busy)await new Promise(r=>setTimeout(r,10));a.beginCalibration();
+      const points={left_shoulder:{x:.36,y:.3,score:1},right_shoulder:{x:.64,y:.3,score:1},left_wrist:{x:.3,y:.6,score:1},right_wrist:{x:.7,y:.6,score:1}};let waiting;
+      for(let i=0;i<20;i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points});await new Promise(r=>setTimeout(r,50));}waiting=a.state;
+      points.left_hip={x:.4,y:.7,score:1};points.right_hip={x:.6,y:.7,score:1};
+      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points});await new Promise(r=>setTimeout(r,50));}
+      return{waiting,state:a.state,mode:a.game.calibration.bodyMode,energy:a.game.energy.energy,level:a.game.energy.feverLevel};});
+    assert.equal(full.waiting,'CALIBRATING');assert.equal(full.state,'COUNTDOWN');assert.equal(full.mode,'full');assert.equal(full.energy,preserved.energy);assert.equal(full.level,preserved.level);check('Switch to full-body preserves progress, waits for hips and calibrates with hips visible');
+    await page.locator('#pause').click();
     await page.locator('#camera-fit').selectOption('contain');assert.equal(await page.locator('#camera').evaluate(v=>getComputedStyle(v).objectFit),'contain');assert.equal(await page.evaluate(()=>window.testApp.store.read('settings',{}).cameraFit),'contain');
     await page.locator('#camera-fit').selectOption('cover');assert.equal(await page.locator('#camera').evaluate(v=>getComputedStyle(v).objectFit),'cover');check('Pause switches and persists full-screen / full-body framing');
     await page.locator('#finish').click();await page.locator('#result-close').click();check('Camera tracks released on pause and finish');

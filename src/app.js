@@ -10,9 +10,11 @@ import { MusicEngine } from './music.js';
 import { Renderer } from './renderer.js';
 import { Store } from './storage.js';
 import { FeedbackDirector } from './feedback.js';
+import { FEVER_STAGES, feverStage } from './fever.js';
 const $ = id => document.getElementById(id);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const courseCues = ['左右へ、ゆっくりリーチ', '両手を上げてみよう', '左右へステップ', 'ゆっくり上下に動こう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
+const upperCues = ['胸の前で、左右へリーチ', '両手で上のターゲットへ', '斜めへ、交互にリーチ', '小さく手を振ってみよう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
 export class AppController {
   constructor() {
     this.phase = Math.max(1, Math.min(7, Number(new URLSearchParams(location.search).get('phase')) || 7));
@@ -45,9 +47,15 @@ export class AppController {
     $('mute').onclick = () => { this.audio.setMuted(!this.audio.muted); if (!this.audio.muted) this.retryAudio(); this.updateAudio(); this.saveSettings(); };
     $('audio-retry').onclick = () => this.retryAudio();
     const settings = this.store.read('settings', {});
+    this.bodyMode = settings.bodyMode === 'full' ? 'full' : 'upper';
+    for(const id of ['body-mode','body-mode-settings']) {
+      $(id).value=this.bodyMode;
+      $(id).onchange=()=>{this.bodyMode=$(id).value;for(const other of ['body-mode','body-mode-settings'])$(other).value=this.bodyMode;$('camera-fit').value=this.bodyMode==='full'?'contain':'cover';$('play').classList.toggle('fit-camera',$('camera-fit').value==='contain');this.bodyHint();this.saveSettings();};
+    }
+    this.bodyHint();
     $('reach').value = settings.reach === 'small' ? 'small' : 'wide';
     $('reach').onchange = () => this.saveSettings();
-    $('camera-fit').value = settings.cameraFit === 'contain' ? 'contain' : 'cover';
+    $('camera-fit').value = ['contain','cover'].includes(settings.cameraFit) ? settings.cameraFit : this.bodyMode==='full'?'contain':'cover';
     $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain');
     $('camera-fit').onchange = () => { $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain'); this.saveSettings(); };
     $('volume').value = Math.min(100, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 55)); this.audio.volume = Number($('volume').value) / 100;
@@ -62,7 +70,9 @@ export class AppController {
     $('canvas').addEventListener('pointerup', () => { if (this.demo) this.pointer = null; });
     $('canvas').addEventListener('pointercancel', () => { this.pointer = null; });
   }
-  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value }); }
+  bodyHint() { $('body-hint').textContent=this.bodyMode==='full'?'全身で：腰まで映る距離へ。ステップ・上下動も楽しめます。':'半身で：近くで立っても、座っても。両手を胸の前へ。距離は画角に合わせて調整。'; }
+  get courseCue() { return (this.bodyMode==='upper'?upperCues:courseCues)[Math.min(5,Math.floor(this.seconds/30))]; }
+  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
     $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
@@ -92,7 +102,7 @@ export class AppController {
     this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
     $('audio-help').classList.add('hidden');
     this.feedbackDirector.reset(); this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
-    $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : this.course ? '3 MIN FLOW' : this.phase === 1 ? 'FIRST REACH' : 'FREE FLOW';
+    $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : `${this.bodyMode==='upper'?'半身':'全身'} · ${this.course?'3 MIN FLOW':'FREE FLOW'}`;
     this.state = 'STARTING'; this.updateUI(performance.now()); this.renderer.resize(); this.message(demo ? '音を準備しています' : 'カメラを許可してね\n音と姿勢推定を準備しています');
     const generation = ++this.generation;
     // Calls are both initiated in this user gesture, before the first await.
@@ -115,10 +125,10 @@ export class AppController {
   }
   beginCalibration() {
     this.hands.reset(); this.mapped = null; this.renderer.markers = {}; this.renderer.trails = {};
-    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? 'GOへ触れて、音をつくろう' : '肩と両手が映る位置に立ってね');
+    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? 'GOへ触れて、音をつくろう' : this.bodyMode==='upper'?'両手を胸の前に見せてね\n近くで、小さく動いてもOK':'肩・両手・腰が映る位置へ');
     if (this.demo) {
       const w = this.renderer.width, h = this.renderer.height;
-      this.acceptCalibration({ center: { x: w / 2, y: h * .46 }, shoulder: w * .28, rect: { x: 0, y: 0, width: w, height: h } });
+      this.acceptCalibration({ center: { x: w / 2, y: h * .46 }, shoulder: w * .28, rect: { x: 0, y: 0, width: w, height: h }, bodyMode: this.bodyMode });
       this.countdownAt = performance.now() - 3000;
     }
   }
@@ -144,7 +154,7 @@ export class AppController {
     }
     if (!this.demo && !this.pose.busy && now - this.lastInference >= this.inferenceInterval) {
       this.lastInference = now; const generation = this.generation;
-      this.pose.estimate($('camera'), now, { width: this.renderer.width, height: this.renderer.height, fit: $('camera-fit').value }).then(frame => { if (generation === this.generation && frame) this.processFrame(frame); }).catch(error => { if (generation === this.generation) this.fail(error); });
+      this.pose.estimate($('camera'), now, { width: this.renderer.width, height: this.renderer.height, fit: $('camera-fit').value, bodyMode: this.bodyMode }).then(frame => { if (generation === this.generation && frame) this.processFrame(frame); }).catch(error => { if (generation === this.generation) this.fail(error); });
     }
     if (this.demo && this.state === 'PLAYING') this.processDemo(now);
     if (this.phase >= 3 && this.state === 'PLAYING') {
@@ -156,11 +166,11 @@ export class AppController {
   }
   processFrame(frame) {
     const now = performance.now(); this.latencies.push(frame.completedAt - frame.capturedAt); if (this.latencies.length > 200) this.latencies.shift(); this.poseTimes.push(now); if (this.poseTimes.length > 100) this.poseTimes.shift();
-    const mapped = mapPose(frame, this.renderer.width, this.renderer.height, now, $('camera-fit').value); if (!mapped) return;
+    const mapped = mapPose(frame, this.renderer.width, this.renderer.height, now, $('camera-fit').value, this.bodyMode); if (!mapped) return;
     const lShoulder = mapped.points.left_shoulder, rShoulder = mapped.points.right_shoulder;
     const shoulder = this.game?.calibration.shoulder || (lShoulder?.valid && rShoulder?.valid ? distance(lShoulder,rShoulder) : this.renderer.width*.25);
     const pose = this.hands.update(mapped, now, shoulder); this.mapped = pose;
-    if (this.state === 'CALIBRATING') { const result = this.calibration.update(pose, now); if (result.ready) this.acceptCalibration(result.calibration); else this.message(result.message); return; }
+    if (this.state === 'CALIBRATING') { const result = this.calibration.update(pose, now, this.bodyMode); if (result.ready) this.acceptCalibration(result.calibration); else this.message(result.message); return; }
     if (this.state !== 'PLAYING') return;
     const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
     if (l?.valid && r?.valid) {
@@ -173,26 +183,26 @@ export class AppController {
     }
     this.feedback(this.game.process(pose, now));
     const valid = l?.valid && r?.valid;
-    $('course-cue').textContent = valid ? this.course ? courseCues[Math.min(5, Math.floor(this.seconds / 30))] : '' : '肩と両手を画面に戻してね';
+    $('course-cue').textContent = valid ? this.course ? this.courseCue : '' : this.bodyMode==='upper'?'両手を胸の前へ、身体を中央へ':'肩と両手を画面に戻してね';
   }
   processDemo(now) {
     const c = this.game.calibration, p = this.pointer || { x: c.center.x, y: c.center.y + c.shoulder };
     const points = { left_shoulder: { x: c.center.x - c.shoulder / 2, y: c.center.y, valid: true }, right_shoulder: { x: c.center.x + c.shoulder / 2, y: c.center.y, valid: true }, left_wrist: { ...p, valid: true }, right_wrist: { x: c.center.x, y: c.center.y + c.shoulder, valid: true } };
     this.mapped = this.hands.update({ id: ++this.pose.sequence, capturedAt: now, points, rect: c.rect }, now, c.shoulder);
     this.feedback(this.game.process(this.mapped, now));
-    $('course-cue').textContent = this.course ? courseCues[Math.min(5, Math.floor(this.seconds / 30))] : '';
+    $('course-cue').textContent = this.course ? this.courseCue : '';
   }
   feedback(events) {
     const hasAccent = events.some(event => event.type !== 'move');
     for (const event of events) {
       if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
-      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER', event.intensity || 1);
+      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER' ? this.game.energy.feverLevel : 0, event.intensity || 1);
       this.renderer.reward(event);
     }
   }
   celebrate(cue, now) {
     if (this.cueUntil > now && this.lastCue?.priority > cue.priority) return;
-    this.lastCue = cue; this.cueUntil = now + cue.duration; this.renderer.celebrate(cue, now); this.audio.celebrate(cue.kind);
+    this.lastCue = cue; this.cueUntil = now + cue.duration; this.renderer.celebrate(cue, now); this.audio.celebrate(cue.kind,cue.level);
     $('celebration-title').textContent = cue.title; $('celebration-note').textContent = cue.subtitle;
     $('celebration').className = `celebration ${cue.kind}`;
     // Restart a short entrance only for a new milestone, never on every frame.
@@ -203,9 +213,12 @@ export class AppController {
     const state = this.game?.energy;
     $('energy').textContent = state?.energy || 0; $('timer').textContent = formatTime(this.seconds);
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
-    $('cycle').textContent = state?.cycle === 'FEVER' ? `FEVER ✦ ${Math.ceil(Math.max(0, 8 * BAR_SECONDS - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? 'ひと息 · KEEP YOUR GROOVE' : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `FEVERまであと ${Math.max(0, 100 - (state.energy - state.lastFeverEnergy))}` : 'BUILD THE BEAT';
+    const stage=feverStage(state?.feverLevel), next=state?.nextFeverLevel || 1;
+    $('cycle').textContent = state?.cycle === 'FEVER' ? `FEVER ${stage.level}/5 · ${stage.name} ✦ ${Math.ceil(Math.max(0, 8 * BAR_SECONDS - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ひと息` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `${feverStage(next).name}まであと ${Math.max(0,100-(state.energy-state.lastFeverEnergy))}` : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · 次は${feverStage(next).name}` : 'BUILD THE BEAT';
+    $('play').dataset.feverLevel=String(state?.feverLevel || 0);
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
-    $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && state.energy - state.lastFeverEnergy < 75) || !state);
+    $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && !state.feverLevel && state.energy - state.lastFeverEnergy < 75) || !state);
+    [...$('fever-levels').children].forEach((el,i)=>{el.classList.toggle('on',i<(state?.feverLevel||0));el.setAttribute('aria-label',`${FEVER_STAGES[i].name} ${i<(state?.feverLevel||0)?'到達済み':'これから'}`);});
     $('current-sound').textContent = this.phase === 1 ? 'TOUCH → SOUND' : `${LAYERS[state?.layer || 0]} ♪`;
     $('play').classList.toggle('near-fever', this.phase >= 3 && state?.cycle !== 'FEVER' && state?.energy - state?.lastFeverEnergy >= 75);
     $('rally').classList.toggle('hidden', this.phase < 3); $('rally-count').textContent = state?.hits || 0;
@@ -218,7 +231,7 @@ export class AppController {
       if (this.state === 'PLAYING' && this.audio.ready && this.audioClock?.ctx === this.audio.ctx && audioTime <= this.audioClock.time + .001) this.audio.ready = false;
       this.audioClock = { ctx: this.audio.ctx, time: audioTime }; this.updateAudio();
       const poseFPS = this.poseTimes.length > 1 ? (this.poseTimes.length - 1) * 1000 / (this.poseTimes.at(-1) - this.poseTimes[0]) : 0;
-      this.metrics = { state: this.state, input: this.demo ? 'demo' : 'camera', backend: this.pose.backend || 'none', canvasFPS: Math.round(fps), poseFPS: +poseFPS.toFixed(1), inferenceP95ms: Math.round(sorted[Math.floor(sorted.length * .95)] || 0), particles: this.renderer.particles.parts.length, voices: this.audio.voices.size, audioNodes: this.audio.nodeCount, audioState: this.audio.ctx?.state || 'closed', audioReady: this.audio.ready, audioTime: +audioTime.toFixed(2), tensors: globalThis.tf?.memory().numTensors ?? null, seconds: Math.floor(this.seconds), energy: state?.energy || 0 };
+      this.metrics = { state: this.state, input: this.demo ? 'demo' : 'camera', bodyMode: this.bodyMode, poseInput: this.pose.inputMode || 'none', feverLevel: state?.feverLevel || 0, backend: this.pose.backend || 'none', canvasFPS: Math.round(fps), poseFPS: +poseFPS.toFixed(1), inferenceP95ms: Math.round(sorted[Math.floor(sorted.length * .95)] || 0), particles: this.renderer.particles.parts.length, voices: this.audio.voices.size, audioNodes: this.audio.nodeCount, audioState: this.audio.ctx?.state || 'closed', audioReady: this.audio.ready, audioTime: +audioTime.toFixed(2), tensors: globalThis.tf?.memory().numTensors ?? null, seconds: Math.floor(this.seconds), energy: state?.energy || 0 };
       $('metrics').textContent = JSON.stringify(this.metrics, null, 2);
       if (!this.demo && this.latencies.length > 30 && (this.metrics.inferenceP95ms > 90 || fps < 30)) { this.renderer.particleBudget = 80; if (this.renderer.dpr !== 1) { this.renderer.dpr = 1; this.renderer.resize(); } this.inferenceInterval = 67; }
     }

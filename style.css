@@ -20,3 +20,8 @@
 
 /* Camera framing and the mapper use the same centered crop. */
 .play.fit-camera .stage video{object-fit:contain}
+
+.body-setup{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;margin:20px 0;max-width:370px;font-size:12px}.body-setup select{font:inherit;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:12px;border-radius:12px;min-height:44px;min-width:0}.body-setup p{grid-column:1/-1;margin:0;color:var(--muted);font-size:11px;line-height:1.8}
+.fever-levels{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0}.fever-levels span{border:1px solid #ffffff28;padding:7px 9px;font-size:9px;border-radius:12px;color:#b4d0c5}.fever-levels span.on{background:#ffe48618;border-color:#ffe486;color:#ffe486}
+.play{--fever-color:#ffe486}.play[data-fever-level="2"]{--fever-color:#8af4bf}.play[data-fever-level="3"]{--fever-color:#88caff}.play[data-fever-level="4"]{--fever-color:#dba3ff}.play[data-fever-level="5"]{--fever-color:#ff9ecb}.play.fever .hud-energy b,.play.fever>.cycle,.play.fever .celebration strong{color:var(--fever-color)}.play.fever .energy-track span{background:var(--fever-color)}.play.fever .hud-energy{border-color:var(--fever-color)}
+@media(max-width:420px){.play>.cycle{font-size:10px;max-width:95%;padding:7px 10px}.body-setup{max-width:100%}}

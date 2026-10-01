@@ -42,7 +42,10 @@ export class PoseDetector {
     if (!this.detector || this.busy || video.readyState < 2 || video.currentTime === this.lastVideoTime) return null;
     this.busy = true; this.lastVideoTime = video.currentTime;
     try {
-      const crop = view?.fit === 'cover' ? cameraCrop(video.videoWidth,video.videoHeight,view.width,view.height) : null;
+      const crop = view?.fit === 'cover' && view.bodyMode !== 'upper' ? cameraCrop(video.videoWidth,video.videoHeight,view.width,view.height) : null;
+      const inputMode = crop ? 'visible-crop' : 'full-camera';
+      if(this.inputMode && this.inputMode!==inputMode) this.detector.reset?.();
+      this.inputMode = inputMode;
       let input = video;
       if (crop) {
         this.cropCanvas ??= document.createElement('canvas');

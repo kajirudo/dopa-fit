@@ -2,6 +2,8 @@
 import { ParticleSystem } from './effects.js';
 import { impactAt } from './impact.js';
 import { HAND_GRACE_MS } from './hands.js';
+import { feverStage } from './fever.js';
+import { targetLayout } from './game.js';
 // An independent rounded tile, entirely inside its circular contact area.
 function tilePath(ctx, x, y, radius) {
   const r = radius * .76, corner = r * .32;
@@ -18,38 +20,39 @@ export class Renderer {
     this.rewards = this.rewards.filter(reward => Math.hypot(event.x - reward.x, event.y - reward.y) > 64);
     this.rewards.push({ ...event, color, label: move ? 'MOVE +1' : event.type === 'hit' ? 'HIT +5' : 'NICE +5' });
     if (this.rewards.length > 8) this.rewards.shift();
-    if (!move) this.particles.burst(event.x, event.y, color, { count: Math.round((this.phase >= 3 ? this.inFever ? 60 : 48 : 18) * (event.intensity || 1)), power: 1.55 * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
+    if (!move) this.particles.burst(event.x, event.y, this.inFever ? feverStage(this.feverLevel).color : color, { count: Math.round((this.phase >= 3 ? this.inFever ? 54+6*this.feverLevel : 48 : 18) * (event.intensity || 1)), power: (1.55+(this.inFever?this.feverLevel*.07:0)) * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
   }
   celebrate(cue, now) {
     this.celebration = { ...cue, at: now };
-    if (cue.kind === 'fever' || cue.kind === 'rally' || cue.kind === 'unlock') this.particles.burst(this.width / 2, this.height * .3, '#ffe486', { count: cue.kind === 'fever' ? 80 : 36, power: 1.4, confetti: true });
+    if (cue.kind === 'fever' || cue.kind === 'rally' || cue.kind === 'unlock') this.particles.burst(this.width / 2, this.height * .3, feverStage(cue.level).color, { count: cue.kind === 'fever' ? 72+8*(cue.level||1) : 36, power: 1.4, confetti: true });
   }
   draw(pose, game, now, dt, seconds = 0) {
     const ctx = this.ctx; ctx.clearRect(0, 0, this.width, this.height);
     const feedback = game?.energy, advanced = game?.phase >= 3, fever = feedback?.cycle === 'FEVER', reduced = this.particles.reduced;
     this.inFever = fever;
+    const stage=feverStage(feedback?.feverLevel);this.feverLevel=stage.level;
     const beat = reduced ? 0 : Math.exp(-(seconds % (60 / 112)) / (60 / 112) * 6);
-    this.particles.limit = Math.min(this.particleBudget || 240, game?.phase === 1 ? 80 : feedback?.cycle === 'FEVER' ? 240 : 160);
+    this.particles.limit = Math.min(this.particleBudget || 240, game?.phase === 1 ? 80 : fever ? 160+16*stage.level : 160);
     if (advanced) {
       const cx = this.width / 2, cy = this.height * .48, radius = Math.max(this.width, this.height) * .75;
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, fever ? `rgba(205,120,255,${.12 + beat * .10})` : `rgba(133,217,192,${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      gradient.addColorStop(0, fever ? `rgba(${stage.rgb},${.10+stage.level*.018+beat*.10})` : `rgba(133,217,192,${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient; ctx.fillRect(0, 0, this.width, this.height);
       if (fever && !reduced) {
-        const rays = this.particleBudget === 80 ? 6 : 12;
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(seconds * .12); ctx.fillStyle = `rgba(255,228,134,${.025 + beat * .018})`;
+        const rays = this.particleBudget === 80 ? 6 : 8+stage.level*2;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(seconds * (.08+stage.level*.025)); ctx.fillStyle = `rgba(${stage.rgb},${.025 + beat * .018})`;
         for (let i = 0; i < rays; i++) { ctx.rotate(Math.PI * 2 / rays); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, radius, -.07, .07); ctx.closePath(); ctx.fill(); }
         ctx.restore();
       }
       // Beat bars sit along the floor, leaving the camera and targets readable.
       if (!reduced) for (let i = 0; i < 18; i++) {
         const height = (6 + 12 * beat) * (.45 + .55 * Math.sin(i * 1.7 + seconds * 2) ** 2) * (1 + (feedback?.layer || 0) * .15);
-        ctx.fillStyle = fever ? '#ffe486' : '#85d9c0'; ctx.globalAlpha = .18; ctx.fillRect(12 + i * (this.width * .65 / 18), this.height - height - 8, 4, height);
+        ctx.fillStyle = fever ? stage.color : '#85d9c0'; ctx.globalAlpha = .18; ctx.fillRect(12 + i * (this.width * .65 / 18), this.height - height - 8, 4, height);
       }
       ctx.globalAlpha = 1;
     }
     if (game?.targets.dynamic) {
-      const manager = game.targets, c = game.calibration.center, s = game.calibration.shoulder;
+      const manager = game.targets, c = game.calibration.center, s = targetLayout(game.calibration).span;
       const origin = { x: c.x, y: c.y - .45 * s };
       const lead = manager.active.find(t => t.id === manager.leadId) || manager.active[0];
       const next = manager.active.find(t => t !== lead);
@@ -96,8 +99,8 @@ export class Renderer {
     if (advanced && !reduced) for (const reward of this.rewards || []) {
       const impact = impactAt(now - reward.at, reward.intensity || 1);
       if (reward.type === 'move' || !impact.alpha) continue;
-      ctx.strokeStyle = reward.color; ctx.globalAlpha = impact.alpha * .9; ctx.lineWidth = 3 * impact.alpha + 1;
-      for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (85 + ring * 28), 0, Math.PI * 2); ctx.stroke(); }
+      ctx.strokeStyle = fever ? stage.color : reward.color; ctx.globalAlpha = impact.alpha * .9; ctx.lineWidth = 3 * impact.alpha + 1;
+      for (let ring = 0; ring < (fever && stage.level>=4?4:3); ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (85 + ring * 28), 0, Math.PI * 2); ctx.stroke(); }
       for (let i = 0; i < 8; i++) { const angle = i * Math.PI / 4, start = 26 + impact.ring * 38, end = start + impact.alpha * 20; ctx.beginPath(); ctx.moveTo(reward.x + Math.cos(angle) * start, reward.y + Math.sin(angle) * start); ctx.lineTo(reward.x + Math.cos(angle) * end, reward.y + Math.sin(angle) * end); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
