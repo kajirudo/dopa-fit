@@ -78,8 +78,13 @@ export class AudioManager {
     let ended = 0;
     for (const source of sources) { source.onended = () => { if (++ended === sources.length) { nodes.forEach(n => n.disconnect()); this.voices.delete(voice); } }; source.start(t); source.stop(t + duration + .02); }
   }
-  hit(id) { if (this.ctx) this.play('hit', this.ctx.currentTime, [72, 76, 79][id % 3], true); }
+  hit(id, fever = false) { if (this.ctx) this.play('hit', this.ctx.currentTime, [72, 76, 79][id % 3] + (fever ? 12 : 0), true); }
   move() { if (this.ctx) this.play('move', this.ctx.currentTime, [72, 74, 76, 79, 81, 79, 76, 74][this.moveStep++ % 8], true); }
+  celebrate(kind) {
+    if (!this.ctx || !['unlock', 'rally', 'fever'].includes(kind)) return;
+    const notes = kind === 'fever' ? [72, 76, 79, 84] : kind === 'unlock' ? [76, 79, 84] : [79, 81];
+    notes.forEach((note, i) => this.play('melody', this.ctx.currentTime + i * .085, note, true));
+  }
   stopVoices() { for (const voice of this.voices) { for (const source of voice.sources) { try { source.stop(); } catch {} } voice.nodes.forEach(n => n.disconnect()); } this.voices.clear(); }
   suspend() { this.ready = false; this.stopVoices(); return this.ctx?.suspend().catch(() => {}); }
   async close() { this.ready = false; this.pending = false; this.stopVoices(); const ctx = this.ctx; this.ctx = null; if (ctx) ctx.onstatechange = null; if (ctx && ctx.state !== 'closed') await ctx.close().catch(() => {}); }

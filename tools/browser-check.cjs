@@ -59,10 +59,24 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     };
     await hit(); const first=await page.evaluate(()=>window.testApp.game.energy.hits);
     await page.waitForTimeout(550); assert.equal(await page.evaluate(()=>window.testApp.game.energy.hits),first); check('Holding target never repeats a HIT');
-    for(let i=0;i<21;i++)await hit();
+    let capturedFever=false;
+    for(let i=0;i<21;i++){
+      await hit();
+      if(!capturedFever&&await page.evaluate(()=>window.testApp.game.energy.cycle==='FEVER')){
+        await page.screenshot({path:path.join(root,'test-results/fever.png')});capturedFever=true;
+      }
+    }
     const rewards=await page.evaluate(()=>({energy:window.testApp.game.energy.energy,hits:window.testApp.game.energy.hits,cycle:window.testApp.game.energy.cycle,layer:window.testApp.game.energy.layer,audio:window.testApp.audio.ctx.state}));
     assert.ok(rewards.energy>=100); assert.equal(rewards.layer,5); assert.equal(rewards.cycle,'FEVER'); assert.equal(rewards.audio,'running'); check('Pointer → HIT → audio → ENERGY → FEVER');
-    await page.screenshot({path:path.join(root,'test-results/fever.png')});
+    assert.equal(capturedFever,true);
+    assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('fever')),true);
+    assert.equal(await page.locator('#rally-count').innerText(),String(rewards.hits));
+    const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
+    assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
+    await page.locator('#reduced').check();
+    assert.equal(await page.evaluate(()=>window.testApp.renderer.particles.parts.length),0);
+    assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('reduced-effects')),true);
+    await page.locator('#reduced').uncheck();check('FEVER celebration / cumulative HITS / bounded effects / immediate motion reduction');
     await page.locator('#pause').click(); assert.equal(await state(),'PAUSED');
     await page.locator('#resume').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING'); assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=rewards.energy); check('Pause / recalibrate / resume preserves ENERGY');
     const voiceStats=await page.evaluate(async()=>{const a=window.testApp.audio;for(let i=0;i<100;i++)a.hit(i);const peak={voices:a.voices.size,nodes:a.nodeCount};window.testApp.music.stop();await new Promise(r=>setTimeout(r,700));return{...peak,after:a.voices.size};});

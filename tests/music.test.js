@@ -14,3 +14,11 @@ test('new instrument layers are captured at bar boundaries without changing rese
  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/112/4;engine.tick();}
  assert.equal(engine.layer,5);assert.equal(engine.cycle,'FEVER');
 });
+test('FEVER adds melodic motion and bass while the calm section keeps kick and unlocked layers', () => {
+ const played=[],engine=new MusicEngine({play:(kind,time,note)=>played.push({kind,time,note})},()=>({}));engine.layer=5;
+ const bar=cycle=>{engine.cycle=cycle;played.length=0;for(let s=0;s<16;s++)engine.schedule(s,s*.134);return [...played];};
+ const normal=bar('BUILD'),fever=bar('FEVER'),rest=bar('REST');
+ assert.equal(fever.filter(p=>p.kind==='melody').length,16);assert.equal(normal.filter(p=>p.kind==='melody').length,4);
+ assert.equal(fever.filter(p=>p.kind==='bass').length,8);assert.equal(rest.filter(p=>p.kind==='kick').length,4);
+ assert.equal(rest.some(p=>p.kind==='melody'||p.kind==='synth'),false);assert.equal(engine.layer,5);
+});

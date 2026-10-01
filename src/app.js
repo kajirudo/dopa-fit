@@ -3,11 +3,12 @@ import { CameraManager } from './camera.js';
 import { PoseDetector } from './pose.js';
 import { mapPose, distance } from './coordinates.js';
 import { CalibrationManager } from './calibration.js';
-import { GameEngine, LAYERS } from './game.js';
+import { GameEngine, LAYERS, BAR_SECONDS } from './game.js';
 import { AudioManager } from './audio.js';
 import { MusicEngine } from './music.js';
 import { Renderer } from './renderer.js';
 import { Store } from './storage.js';
+import { FeedbackDirector } from './feedback.js';
 const $ = id => document.getElementById(id);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const courseCues = ['左右へ、ゆっくりリーチ', '両手を上げてみよう', '左右へステップ', 'ゆっくり上下に動こう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
@@ -17,6 +18,7 @@ export class AppController {
     this.camera = new CameraManager($('camera')); this.pose = new PoseDetector(); this.audio = new AudioManager(); this.renderer = new Renderer($('canvas')); this.calibration = new CalibrationManager(); this.store = new Store();
     this.state = 'IDLE'; this.generation = 0; this.seconds = 0; this.game = null; this.demo = false; this.pointer = null; this.mapped = null; this.lastFrame = 0; this.lastInference = 0; this.inferenceInterval = 50; this.latencies = []; this.frameTimes = []; this.poseTimes = []; this.shiftSince = 0; this.countdownAt = null;
     this.music = new MusicEngine(this.audio, () => this.game?.energy || { layer: 0, cycle: 'BUILD' });
+    this.feedbackDirector = new FeedbackDirector(); this.renderer.phase = this.phase;
     this.bind();
     this.audio.onStatus = () => { this.updateAudio(); if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     this.resize = () => { if (this.state === 'IDLE' || this.state === 'FINISHED') return; this.renderer.resize(); if (['PLAYING', 'COUNTDOWN', 'CALIBRATING'].includes(this.state)) this.beginCalibration(); };
@@ -44,7 +46,8 @@ export class AppController {
     $('volume').oninput = () => { this.audio.setVolume(Number($('volume').value) / 100); this.updateAudio(); this.saveSettings(); };
     $('reduced').checked = settings.reduced ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.renderer.particles.reduced = $('reduced').checked;
-    $('reduced').onchange = () => { this.renderer.particles.reduced = $('reduced').checked; this.saveSettings(); };
+    $('play').classList.toggle('reduced-effects', $('reduced').checked);
+    $('reduced').onchange = () => { this.renderer.particles.reduced = $('reduced').checked; $('play').classList.toggle('reduced-effects', $('reduced').checked); if ($('reduced').checked) { this.renderer.particles.parts = []; this.renderer.rewards = []; $('celebration').getAnimations().forEach(animation => animation.cancel()); } this.saveSettings(); };
     const pointer = event => { const rect = $('canvas').getBoundingClientRect(); this.pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top }; };
     $('canvas').addEventListener('pointerdown', event => { if (this.demo) { pointer(event); $('canvas').setPointerCapture(event.pointerId); } });
     $('canvas').addEventListener('pointermove', event => { if (this.demo) pointer(event); });
@@ -79,8 +82,9 @@ export class AppController {
     if (!['IDLE', 'FINISHED', 'ERROR'].includes(this.state)) return;
     this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
     $('audio-help').classList.add('hidden');
+    this.feedbackDirector.reset(); this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
     $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : this.course ? '3 MIN FLOW' : this.phase === 1 ? 'FIRST REACH' : 'FREE FLOW';
-    this.state = 'STARTING'; this.renderer.resize(); this.message(demo ? '音を準備しています' : 'カメラを許可してね\n音と姿勢推定を準備しています');
+    this.state = 'STARTING'; this.updateUI(performance.now()); this.renderer.resize(); this.message(demo ? '音を準備しています' : 'カメラを許可してね\n音と姿勢推定を準備しています');
     const generation = ++this.generation;
     // Calls are both initiated in this user gesture, before the first await.
     try {
@@ -131,7 +135,11 @@ export class AppController {
       this.pose.estimate($('camera'), now).then(frame => { if (generation === this.generation && frame) this.processFrame(frame); }).catch(error => { if (generation === this.generation) this.fail(error); });
     }
     if (this.demo && this.state === 'PLAYING') this.processDemo(now);
-    this.renderer.draw(this.mapped, this.game, now, dt); this.updateUI(now);
+    if (this.phase >= 3 && this.state === 'PLAYING') {
+      const cue = this.feedbackDirector.update(this.game.energy);
+      if (cue) this.celebrate(cue, now);
+    }
+    this.renderer.draw(this.mapped, this.game, now, dt, this.seconds); this.updateUI(now);
     this.raf = requestAnimationFrame(() => this.animate());
   }
   processFrame(frame) {
@@ -163,16 +171,28 @@ export class AppController {
     const hasAccent = events.some(event => event.type !== 'move');
     for (const event of events) {
       if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
-      else this.audio.hit(event.targetId ?? 2);
+      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER');
       this.renderer.reward(event);
     }
+  }
+  celebrate(cue, now) {
+    if (this.cueUntil > now && this.lastCue?.priority > cue.priority) return;
+    this.lastCue = cue; this.cueUntil = now + cue.duration; this.renderer.celebrate(cue, now); this.audio.celebrate(cue.kind);
+    $('celebration-title').textContent = cue.title; $('celebration-note').textContent = cue.subtitle;
+    $('celebration').className = `celebration ${cue.kind}`;
+    // Restart a short entrance only for a new milestone, never on every frame.
+    $('celebration').getAnimations().forEach(animation => animation.cancel());
+    if (!this.renderer.particles.reduced && !matchMedia('(prefers-reduced-motion: reduce)').matches) $('celebration').animate([{ opacity: 0, transform: 'translateY(8px) scale(.94)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
   }
   updateUI(now) {
     const state = this.game?.energy;
     $('energy').textContent = state?.energy || 0; $('timer').textContent = formatTime(this.seconds);
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
-    $('cycle').textContent = state?.cycle === 'FEVER' ? 'FEVER ✦' : state?.cycle === 'REST' ? 'ひと息 · KEEP YOUR GROOVE' : 'BUILD THE BEAT';
+    $('cycle').textContent = state?.cycle === 'FEVER' ? `FEVER ✦ ${Math.ceil(Math.max(0, 8 * BAR_SECONDS - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? 'ひと息 · KEEP YOUR GROOVE' : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `FEVERまであと ${Math.max(0, 100 - (state.energy - state.lastFeverEnergy))}` : 'BUILD THE BEAT';
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
+    $('play').classList.toggle('near-fever', this.phase >= 3 && state?.cycle !== 'FEVER' && state?.energy - state?.lastFeverEnergy >= 75);
+    $('rally').classList.toggle('hidden', this.phase < 3); $('rally-count').textContent = state?.hits || 0;
+    if (now >= this.cueUntil) $('celebration').classList.add('hidden');
     $('layers').classList.toggle('hidden', this.phase === 1); $('energy-fill').parentElement.classList.toggle('hidden', this.phase === 1);
     [...$('layers').children].forEach((el, i) => { el.classList.toggle('on', !!state && i <= state.layer); el.setAttribute('aria-label', `${LAYERS[i]} ${state && i <= state.layer ? '解放済み' : '未解放'}`); });
     if (now - (this.lastMetricsAt || 0) > 1000) {

@@ -2,6 +2,8 @@
 
 ## 報告と原因の仮説
 
+追記：rc.4公開後、利用者から「iPhoneで音が出ました」と報告を受けました。基本の音声改善は利用者確認済みです。機種・OS・消音モードや復帰条件までは特定されていません。
+
 利用者報告：公開候補rc.3でAndroidは音と手振りが動作し、iPhoneでは音が出なかった。機種・OS・ブラウザ・消音モード・出力先は未特定。原因が消音スイッチだけだったと確定した記録ではありません。
 
 WebKitの[公式不具合記録237322](https://bugs.webkit.org/show_bug.cgi?id=237322)には、iOSの消音設定がWeb Audioに影響し、対応環境でAudio Sessionの`playback`指定を使えることが記載されています。[AudioSession.type](https://developer.mozilla.org/en-US/docs/Web/API/AudioSession/type)は対応が限られるため存在確認と例外処理を行います。[AudioContextの中断](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/state)も復帰時の確認対象です。これらは今回の症状に関する仮説の根拠です。

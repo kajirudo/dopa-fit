@@ -15,9 +15,9 @@ export class MusicEngine {
     const s = step % 16, bar = Math.floor(step / 16), a = this.audio, rest = this.cycle === 'REST', fever = this.cycle === 'FEVER';
     if (s % 4 === 0) a.play('kick', t);
     if (this.layer >= 1 && s % (rest ? 4 : 2) === 0) a.play('hat', t);
-    if (this.layer >= 2 && (s === 4 || s === 12)) a.play('snare', t);
-    if (this.layer >= 3 && s % 4 === 0) a.play('bass', t, [36, 45, 40, 43][bar % 4]);
-    if (!rest && this.layer >= 4 && s % 4 === 2) a.play('synth', t, [60, 64, 67, 69][(bar + s / 2) % 4]);
-    if (!rest && this.layer >= 5 && s % (fever ? 2 : 4) === 0) a.play('melody', t, [72, 76, 79, 81, 79, 76, 74, 72][(step / 2) % 8]);
+    if (this.layer >= 2 && (s === 4 || s === 12)) { a.play('snare', t); if (fever) a.play('snare', t + .025); }
+    if (this.layer >= 3 && s % (fever ? 2 : 4) === 0) a.play('bass', t, [36, 45, 40, 43][bar % 4]);
+    if (!rest && this.layer >= 4 && s % 4 === 2) a.play('synth', t, [60, 64, 67, 69][(bar + s / 2) % 4] + (fever ? 12 : 0));
+    if (!rest && this.layer >= 5 && s % (fever ? 1 : 4) === 0) a.play('melody', t, [72, 76, 79, 81, 79, 76, 74, 72][(fever ? step : step / 2) % 8]);
   }
 }
