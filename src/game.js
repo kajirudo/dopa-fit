@@ -171,17 +171,19 @@ export class TargetManager {
   }
 }
 export class EnergySystem {
-  constructor() { this.energy = 0; this.hits = 0; this.moves = 0; this.flow = 0; this.heat = 0; this.cycle = 'BUILD'; this.lastFeverEnergy = 0; this.phaseAt = 0; this.feverLevel = 0; }
+  constructor() { this.energy = 0; this.hits = 0; this.moves = 0; this.flow = 0; this.heat = 0; this.cycle = 'BUILD'; this.lastFeverEnergy = 0; this.phaseAt = 0; this.feverLevel = 0; this.stageLevel = 0; this.presentedStageLevel = 0; this.cycleId = 0; }
+  get variant() { return ['meteor','rings','waves','star-rain'][Math.max(0,this.cycleId-5)%4]; }
   get nextFeverLevel() { return Math.min(5,this.feverLevel+1); }
-  get feverDuration() { return 8*240/feverStage(this.feverLevel).bpm; }
+  get feverDuration() { return 8*240/feverStage(Math.max(this.feverLevel,this.presentedStageLevel)).bpm; }
   get restDuration() { return 4*240/REST_BPM; }
-  reward(kind) { this.energy += kind === 'hit' || kind === 'exercise' ? 5 : 1; if (kind === 'hit') this.hits++; else this.moves++; this.heat = Math.min(1, this.heat + .12); }
+  reward(kind) { this.energy += kind === 'hit' || kind === 'exercise' ? 5 : 1; if (kind === 'hit') this.hits++; else this.moves++; this.heat = Math.min(1, this.heat + .12); this.stageLevel=Math.max(this.stageLevel,Math.min(5,Math.floor(this.energy/100))); }
   get layer() { return THRESHOLDS.reduce((level, value, i) => this.energy >= value ? i : level, 0); }
   tick(seconds, dt, canStartFever = true) {
+    this.stageLevel=Math.max(this.stageLevel,Math.min(5,Math.floor(this.energy/100)));
     this.heat = Math.max(0, this.heat - dt * .045);
     if (this.cycle === 'FEVER' && seconds - this.phaseAt >= this.feverDuration - 1e-6) { this.cycle = 'REST'; this.phaseAt = seconds; }
     else if (this.cycle === 'REST' && seconds - this.phaseAt >= this.restDuration - 1e-6) this.cycle = 'BUILD';
-    if (canStartFever && this.cycle === 'BUILD' && this.energy - this.lastFeverEnergy >= 100) { this.cycle = 'FEVER'; this.phaseAt = seconds; this.lastFeverEnergy += 100; this.feverLevel = this.nextFeverLevel; }
+    if (canStartFever && this.cycle === 'BUILD' && this.energy - this.lastFeverEnergy >= 100) { this.cycle = 'FEVER'; this.phaseAt = seconds; this.lastFeverEnergy += 100; this.feverLevel = this.nextFeverLevel; this.cycleId++; }
   }
 }
 export class MovementTracker {

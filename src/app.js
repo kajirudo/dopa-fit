@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { DopaRecordController } from './record-controller.js';
 import { CameraManager } from './camera.js';
 import { PoseDetector } from './pose.js';
 import { mapPose, distance } from './coordinates.js';
@@ -25,7 +26,7 @@ export class AppController {
     this.music = new MusicEngine(this.audio, () => this.game?.energy || { layer: 0, cycle: 'BUILD' });
     this.feedbackDirector = new FeedbackDirector(); this.renderer.phase = this.phase; this.hands = new HandTracker();
     setLanguage(initialLanguage(this.store.read('settings',{}).language)); applyLanguage();
-    this.bind();
+    this.bind();this.recordFeature=new DopaRecordController(this);
     this.audio.onStatus = () => { this.updateAudio(); if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     this.resize = () => { if (this.state === 'IDLE' || this.state === 'FINISHED') return; this.renderer.resize(); if (['PLAYING', 'COUNTDOWN', 'CALIBRATING'].includes(this.state)) this.beginCalibration(); };
     new ResizeObserver(() => { const r = $('canvas').getBoundingClientRect(); if (Math.abs(r.width - (this.renderer.width || 0)) > 2 || Math.abs(r.height - (this.renderer.height || 0)) > 2) this.resize(); }).observe($('stage'));
@@ -79,7 +80,7 @@ export class AppController {
   }
   bodyHint() { $('body-hint').textContent=t(this.bodyMode==='full'?'hintFull':'hintUpper'); }
   get courseCue() { return t(`${this.bodyMode==='upper'?'upper':'full'}Cue${Math.min(5,Math.floor(this.seconds/30))}`); }
-  saveSettings() { this.store.write('settings', { language:getLanguage(), volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode }); }
+  saveSettings() { this.store.write('settings', { language:getLanguage(), volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode, ...this.recordFeature?.settings }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
     $('mute').textContent = t(this.audio.muted ? 'soundOff' : 'soundOn'); $('mute').setAttribute('aria-pressed', String(this.audio.muted));
@@ -93,7 +94,7 @@ export class AppController {
     if (this.audio.pending || (!['STARTING', 'CALIBRATING', 'COUNTDOWN', 'PLAYING'].includes(this.state) && !(this.state === 'PAUSED' && $('settings').open))) return;
     const generation = this.generation;
     $('audio-help').classList.remove('hidden');
-    this.music.stop(); this.audio.setMuted(false);
+    this.recordFeature.pause();this.music.stop(); this.audio.setMuted(false);
     if (this.audio.volume === 0) { $('volume').value = 55; this.audio.setVolume(.55); }
     this.saveSettings();
     try {
@@ -121,8 +122,9 @@ export class AppController {
   }
   async start(demo) {
     if (!['IDLE', 'FINISHED', 'ERROR'].includes(this.state)) return;
+    this.recordFeature.start(demo);
     this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
-    this.practice=new Practice(this.phase>=2);this.peakFeverLevel=0;this.audibleFeverToken=null;
+    this.practice=new Practice(this.phase>=2);this.peakFeverLevel=0;this.audibleFeverToken=null;this.presentedBar=-1;
     $('audio-help').classList.add('hidden');
     this.feedbackDirector.reset();this.renderer.departingTargets=[]; this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
     $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : `${t(this.bodyMode==='upper'?'upper':'full')} · ${this.course?'3 MIN FLOW':'FREE FLOW'}`;
@@ -142,7 +144,7 @@ export class AppController {
   }
   fail(error) {
     this.hands.reset(); this.mapped = null;
-    this.generation++; this.camera.stop(); this.music.stop(); this.audio.suspend(); this.state = 'ERROR'; cancelAnimationFrame(this.raf);
+    this.recordFeature.pause();this.generation++; this.camera.stop(); this.music.stop(); this.audio.suspend(); this.state = 'ERROR'; cancelAnimationFrame(this.raf);
     const keys={NotAllowedError:'cameraDenied',NotFoundError:'cameraMissing',NotReadableError:'cameraBusy',OverconstrainedError:'cameraError'};
     this.messageKey(keys[error.name]||'error',true);
   }
@@ -177,6 +179,8 @@ export class AppController {
       if(this.practice?.active){this.practice.tick(dt);if(!this.practice.active)this.endPractice();}
       this.game.energy.tick(this.seconds, dt, this.phase >= 3&&!this.practice?.active);
       const energy=this.game.energy,audible=this.music.clock;
+      if(audible&&Number.isFinite(audible.stageLevel))energy.presentedStageLevel=Math.max(energy.presentedStageLevel,audible.stageLevel);
+      else if(!this.audio.ready&&Math.floor(this.seconds/(240/112))!==this.presentedBar){this.presentedBar=Math.floor(this.seconds/(240/112));energy.presentedStageLevel=energy.stageLevel;}
       const waiting=energy.cycle==='FEVER'&&this.audio.ready&&this.music.timer!==null&&(audible?.cycle!=='FEVER'||audible?.token!==energy.lastFeverEnergy);
       this.game.presentationCycle=waiting?'RISE':energy.cycle;
       if(waiting)energy.phaseAt=this.seconds;
@@ -185,7 +189,7 @@ export class AppController {
         this.peakFeverLevel=Math.max(this.peakFeverLevel,energy.feverLevel);
       }
       const clock=this.music.clock, bpm=this.game.energy.cycle==='FEVER'?feverStage(this.game.energy.feverLevel).bpm:this.game.energy.cycle==='REST'?REST_BPM:BASE_BPM;
-      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.presentationCycle, clock?.beatMs ?? 60000/bpm, energy.feverLevel);
+      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.presentationCycle, clock?.beatMs ?? 60000/bpm, Math.max(energy.presentedStageLevel,energy.feverLevel));
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
     }
@@ -198,11 +202,11 @@ export class AppController {
       const cue = this.feedbackDirector.update(this.feedbackState);
       if (cue) this.celebrate(cue, now);
     }
-    this.renderer.draw(this.mapped, this.game, now, dt, this.music.clockSeconds ?? this.seconds); this.updateUI(now);
+    this.renderer.draw(this.mapped, this.game, now, dt, this.music.clockSeconds ?? this.seconds); this.recordFeature.render(now); this.updateUI(now);
     this.raf = requestAnimationFrame(() => this.animate());
   }
   processFrame(frame) {
-    const now = performance.now(); this.latencies.push(frame.completedAt - frame.capturedAt); if (this.latencies.length > 200) this.latencies.shift(); this.poseTimes.push(now); if (this.poseTimes.length > 100) this.poseTimes.shift();
+    const now = performance.now(); this.recordFeature.poc?.pose.add(frame.completedAt-frame.capturedAt);this.latencies.push(frame.completedAt - frame.capturedAt); if (this.latencies.length > 200) this.latencies.shift(); this.poseTimes.push(now); if (this.poseTimes.length > 100) this.poseTimes.shift();
     const mapped = mapPose(frame, this.renderer.width, this.renderer.height, now, $('camera-fit').value, this.bodyMode); if (!mapped) return;
     const lShoulder = mapped.points.left_shoulder, rShoulder = mapped.points.right_shoulder;
     const shoulder = this.game?.calibration.shoulder || (lShoulder?.valid && rShoulder?.valid ? distance(lShoulder,rShoulder) : this.renderer.width*.25);
@@ -230,16 +234,17 @@ export class AppController {
     $('course-cue').textContent = this.course ? this.courseCue : '';
   }
   feedback(events) {
+    this.recordFeature.note(events,this.mapped);
     const hasAccent = events.some(event => event.type !== 'move');
     for (const event of events) {
       if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
-      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.presentationCycle === 'FEVER' ? this.game.energy.feverLevel : 0, event.intensity || 1);
+      else this.audio.hit(event.targetId ?? 2, this.game?.energy.stageLevel||0, event.intensity || 1);
       this.renderer.reward(event);
     }
     if(this.practice?.hit(events)){this.renderer.departingTargets=[{...this.game.targets.active[0],waiting:true}];if(this.practice.active)this.practice.attach(this.game,performance.now());else this.endPractice();}
   }
   endPractice() { this.practice.restore(this.game,$('reach').value);this.updateUI(performance.now()); }
-  get feedbackState() {const state=this.game?.energy;return state?{...state,cycle:this.game.presentationCycle||state.cycle,layer:state.layer,nextFeverLevel:state.nextFeverLevel,feverDuration:state.feverDuration}:null;}
+  get feedbackState() {const state=this.game?.energy;return state?{...state,cycle:this.game.presentationCycle||state.cycle,layer:state.layer,variant:state.variant,nextFeverLevel:state.nextFeverLevel,feverDuration:state.feverDuration}:null;}
   celebrate(cue, now) {
     if (this.cueUntil > now && this.lastCue?.priority > cue.priority) return;
     this.lastCue = cue; this.cueUntil = now + cue.duration; this.renderer.celebrate(cue, now); this.audio.celebrate(cue.kind,cue.level);
@@ -257,14 +262,14 @@ export class AppController {
     if(practicing)$('practice-note').textContent=t(this.practice.lane?'practiceRight':'practiceLeft',{n:this.practice.remaining});
     $('energy').textContent = state?.energy || 0; $('timer').textContent = formatTime(this.seconds);
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
-    const stage=feverStage(state?.feverLevel), next=state?.nextFeverLevel || 1;
+    const stage=feverStage(state?.presentedStageLevel||state?.feverLevel), next=Math.max(state?.stageLevel||0,state?.nextFeverLevel || 1);
     const bpm=this.music.clock?.bpm || (state?.cycle==='FEVER'?stage.bpm:state?.cycle==='REST'?REST_BPM:BASE_BPM);
     $('cycle').textContent = state?.cycle === 'RISE'?t('rise',{name:stage.name}):state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ${t('calm')}` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? t('until',{name:feverStage(next).name,n:Math.max(0,100-(state.energy-state.lastFeverEnergy))}) : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · ${t('next',{name:feverStage(next).name})}` : 'BUILD THE BEAT';
     $('play').classList.toggle('rising',state?.cycle==='RISE');
     $('play').dataset.feverLevel=String(state?.feverLevel || 0);
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
     $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && !state.feverLevel && state.energy - state.lastFeverEnergy < 75) || !state);
-    [...$('fever-levels').children].forEach((el,i)=>{el.classList.toggle('on',i<(state?.feverLevel||0));el.setAttribute('aria-label',`${FEVER_STAGES[i].name} ${t(i<(state?.feverLevel||0)?'reached':'upcoming')}`);});
+    [...$('fever-levels').children].forEach((el,i)=>{el.classList.toggle('on',i<(state?.stageLevel||state?.feverLevel||0));el.setAttribute('aria-label',`${FEVER_STAGES[i].name} ${t(i<(state?.stageLevel||state?.feverLevel||0)?'reached':'upcoming')}`);});
     $('current-sound').textContent = this.phase === 1 ? 'TOUCH → SOUND' : `${LAYERS[state?.layer || 0]} ♪`;
     $('play').classList.toggle('near-fever', this.phase >= 3 && state?.cycle !== 'FEVER' && state?.energy - state?.lastFeverEnergy >= 75);
     $('rally').classList.toggle('hidden', this.phase < 3); $('rally-count').textContent = state?.hits || 0;
@@ -278,6 +283,7 @@ export class AppController {
       this.audioClock = { ctx: this.audio.ctx, time: audioTime }; this.updateAudio();
       const poseFPS = this.poseTimes.length > 1 ? (this.poseTimes.length - 1) * 1000 / (this.poseTimes.at(-1) - this.poseTimes[0]) : 0;
       this.metrics = { state: this.state, input: this.demo ? 'demo' : 'camera', bodyMode: this.bodyMode, poseInput: this.pose.inputMode || 'none', feverLevel: state?.feverLevel || 0, backend: this.pose.backend || 'none', canvasFPS: Math.round(fps), poseFPS: +poseFPS.toFixed(1), inferenceP95ms: Math.round(sorted[Math.floor(sorted.length * .95)] || 0), particles: this.renderer.particles.parts.length, voices: this.audio.voices.size, audioNodes: this.audio.nodeCount, audioState: this.audio.ctx?.state || 'closed', audioReady: this.audio.ready, audioTime: +audioTime.toFixed(2), tensors: globalThis.tf?.memory().numTensors ?? null, seconds: Math.floor(this.seconds), energy: state?.energy || 0 };
+      this.recordFeature?.observe(this.metrics,now);this.metrics.record=this.recordFeature?.diagnostics;
       $('metrics').textContent = JSON.stringify(this.metrics, null, 2);
       if (!this.demo && this.latencies.length > 30 && (this.metrics.inferenceP95ms > 90 || fps < 30)) { this.renderer.particleBudget = 80; if (this.renderer.dpr !== 1) { this.renderer.dpr = 1; this.renderer.resize(); } this.inferenceInterval = 67; }
     }
@@ -291,28 +297,28 @@ export class AppController {
   pause() {
     if (['IDLE', 'FINISHED', 'PAUSED'].includes(this.state)) return;
     this.hands.reset();
-    this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.messageKey('paused',true);
+    this.recordFeature.pause();this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.messageKey('paused',true);
     this.updateAudio();
   }
   async resume() {
     if (!['PAUSED', 'ERROR'].includes(this.state)) return;
-    this.state = 'STARTING'; const generation = ++this.generation; this.messageKey('preparing');
+    this.state = 'STARTING'; const generation = ++this.generation; this.messageKey('preparing');if(this.recordFeature.masked&&!this.demo)this.recordFeature.initTracker();
     try { const audioPromise = this.audio.unlock({ rebuild: true }), cameraPromise = this.demo ? Promise.resolve() : this.camera.start(); await Promise.all([audioPromise, cameraPromise, this.demo ? Promise.resolve() : this.pose.init()]); if (generation !== this.generation) return; this.pose.lastVideoTime = -1; this.beginCalibration(); this.lastFrame = performance.now(); this.animate(); }
     catch (error) { if (generation === this.generation) this.fail(error); }
   }
   async finish() {
-    if (['IDLE', 'FINISHED'].includes(this.state)) return;
+    if (['IDLE', 'FINISHED','FINISHING'].includes(this.state)) return;
     this.hands.reset();
     $('settings').close();
-    const hadGame = !!this.game, energy = this.game?.energy; this.generation++; this.state = 'FINISHED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); await this.audio.close(); await this.pose.dispose();
+    const hadGame = !!this.game, energy = this.game?.energy; this.generation++; this.state = 'FINISHING'; cancelAnimationFrame(this.raf); await this.recordFeature.finish(); this.camera.stop(); this.music.stop(); await this.audio.close(); await this.pose.dispose();this.state='FINISHED';
     $('play').classList.add('hidden'); $('landing').classList.remove('hidden'); this.mapped = null; this.renderer.particles.parts = [];
     if (hadGame) {
-      const record = { at: new Date().toISOString(), seconds: Math.floor(this.seconds), energy: energy.energy, hits: energy.hits, feverLevel:this.peakFeverLevel||0, input: this.demo ? 'demo' : 'camera' };
+      const record = { at: new Date().toISOString(), seconds: Math.floor(this.seconds), energy: energy.energy, hits: energy.hits, feverLevel:this.peakFeverLevel||0,stageLevel:energy.stageLevel,cycleCount:energy.cycleId, input: this.demo ? 'demo' : 'camera' };
       const saved = this.phase >= 4 && this.store.saveSession(record);
       $('result-energy').textContent = record.energy; $('result-hits').textContent = record.hits; $('result-time').textContent = formatTime(record.seconds);
       this.resultRecord=record;drawResultCard($('result-card'),record,this.renderer.characters.idle);$('result-fever').textContent=`${record.feverLevel}/5`;$('card-status').textContent='';
       $('saved-note').textContent = t(saved?(this.demo?'savedDemo':'saved'):this.phase<4?'notSavedMode':'notSaved');
-      $('result').showModal();
+      $('result').showModal();this.recordFeature.generate();
     }
   }
   renderHistory() {
@@ -327,11 +333,11 @@ export class AppController {
       this.hadController = !!navigator.serviceWorker.controller;
       const showUpdate = () => { if (registration.waiting && navigator.serviceWorker.controller) $('update-banner').classList.remove('hidden'); };
       showUpdate(); registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', showUpdate));
-      $('update').onclick = async () => { if (!['IDLE', 'FINISHED'].includes(this.state)) await this.finish(); this.updateRequested = true; registration.waiting?.postMessage({ type: 'ACTIVATE' }); };
+      $('update').onclick = async () => { if(this.recordFeature.exporting){$('update').textContent=t('videoUpdateWait');return;}this.recordFeature.stopPreview();if (!['IDLE', 'FINISHED'].includes(this.state)) await this.finish(); this.updateRequested = true; registration.waiting?.postMessage({ type: 'ACTIVATE' }); };
       navigator.serviceWorker.addEventListener('controllerchange', () => { if ((this.updateRequested || this.hadController) && ['IDLE','FINISHED'].includes(this.state) && !this.updating) { this.updating = true; location.reload(); } else (navigator.serviceWorker.controller)?.postMessage({ type: 'CHECK_READY' }); this.hadController = true; });
       navigator.serviceWorker.addEventListener('message', event => {
         if (event.data?.type === 'OFFLINE_READY') {this.offlineStatus='offlineReady'; $('offline').textContent=t(this.offlineStatus);}
-        if (event.data?.type === 'STATE_REQUEST') event.source?.postMessage({ type: 'CLIENT_STATE', nonce: event.data.nonce, busy: !['IDLE', 'FINISHED'].includes(this.state) });
+        if (event.data?.type === 'STATE_REQUEST') event.source?.postMessage({ type: 'CLIENT_STATE', nonce: event.data.nonce, busy: !['IDLE', 'FINISHED'].includes(this.state)||!!this.recordFeature.exporting||!!this.recordFeature.previewActive });
         if (event.data?.type === 'UPDATE_BUSY') { this.updateRequested = false; this.updateBusy=true; $('update').textContent=t('updateBusy'); }
       });
       const check = () => (navigator.serviceWorker.controller || registration.active)?.postMessage({ type: 'CHECK_READY' }); check(); navigator.serviceWorker.ready.then(check);

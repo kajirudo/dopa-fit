@@ -12,14 +12,14 @@ export class AudioManager {
     try { const session = this.getSession(); if (session) session.type = 'playback'; } catch { /* Optional API; Web Audio still works without it. */ }
     if (rebuild && this.ctx) {
       const old = this.ctx; old.onstatechange = null; this.stopVoices(); this.master.disconnect(); this.compressor.disconnect();
-      this.musicGain?.disconnect(); this.ctx = null; old.close().catch(() => {});
+      this.musicGain?.disconnect(); this.monitor?.disconnect(); this.recordDestination?.disconnect(); this.recordDestination=null; this.ctx = null; old.close().catch(() => {});
     }
     if (!this.ctx || this.ctx.state === 'closed') {
       this.ctx = this.createContext();
       this.master = this.ctx.createGain(); this.compressor = this.ctx.createDynamicsCompressor();
       this.musicGain=this.ctx.createGain();this.musicGain.gain.value=.85;this.musicGain.connect(this.master);
       this.compressor.threshold.value = -14; this.compressor.ratio.value = 6;
-      this.master.connect(this.compressor); this.compressor.connect(this.ctx.destination);
+      this.master.connect(this.compressor); this.monitor=this.ctx.createGain();this.master.gain.value=.65;this.compressor.connect(this.monitor);this.monitor.connect(this.ctx.destination);
       this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
       const data = this.noise.getChannelData(0); for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       this.setVolume(this.volume);
@@ -52,10 +52,11 @@ export class AudioManager {
     const voice = { nodes: [source], sources: [source] }; this.voices.add(voice);
     source.onended = () => { source.disconnect(); this.voices.delete(voice); }; source.start(); source.stop(ctx.currentTime + duration + .02);
   }
-  get nodeCount() { return this.ctx ? 3 + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
+  get recordStream() { if(!this.ctx||!this.ctx.createMediaStreamDestination)return null;if(!this.recordDestination){this.recordDestination=this.ctx.createMediaStreamDestination();this.compressor.connect(this.recordDestination);}return this.recordDestination.stream; }
+  get nodeCount() { return this.ctx ? 4 + (this.recordDestination?1:0) + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
   setMusicStyle(cycle,level,when) { if(this.musicGain && this.ctx)this.musicGain.gain.setTargetAtTime(cycle==='REST'?.55:cycle==='FEVER'?1.1+.05*feverStage(level).level:.85,Math.max(this.ctx.currentTime,when),.04); }
   setBuildUp(when,duration) { if(this.musicGain&&this.ctx){const at=Math.max(this.ctx.currentTime,when),gain=this.musicGain.gain;gain.cancelScheduledValues(at);gain.setValueAtTime(.85,at);gain.linearRampToValueAtTime(.32,at+Math.max(.05,duration-.03));} }
-  setVolume(value) { this.volume = Math.max(0, Math.min(1, value)); if (this.ctx && this.ctx.state !== 'closed') this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * .65, this.ctx.currentTime, .02); }
+  setVolume(value) { this.volume = Math.max(0, Math.min(1, value)); if (this.ctx && this.ctx.state !== 'closed') this.monitor.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, .02); }
   setMuted(value) { this.muted = value; this.setVolume(this.volume); }
   play(kind, when, note = 60, priority = false, intensity = 1) {
     const ctx = this.ctx;
@@ -109,5 +110,5 @@ export class AudioManager {
   }
   stopVoices() { for (const voice of this.voices) { for (const source of voice.sources) { try { source.stop(); } catch {} } voice.nodes.forEach(n => n.disconnect()); } this.voices.clear(); }
   suspend() { this.ready = false; this.stopVoices(); return this.ctx?.suspend().catch(() => {}); }
-  async close() { this.ready = false; this.pending = false; this.stopVoices(); const ctx = this.ctx; this.ctx = null; if (ctx) ctx.onstatechange = null; if (ctx && ctx.state !== 'closed') await ctx.close().catch(() => {}); }
+  async close() { this.ready = false; this.pending = false; this.stopVoices(); const ctx = this.ctx; this.ctx = null; this.recordDestination=null; if (ctx) ctx.onstatechange = null; if (ctx && ctx.state !== 'closed') await ctx.close().catch(() => {}); }
 }

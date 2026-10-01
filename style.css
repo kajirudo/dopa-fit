@@ -70,3 +70,12 @@
 #result .result-stats{margin:12px 0}#result .result-peak{font-size:14px;color:#a9deca}
 .card-actions{display:grid;gap:10px}.card-actions button{width:100%;min-height:48px}
 #result-close{display:block;width:100%;padding:12px;border:0;background:transparent;color:inherit;cursor:pointer}
+
+/* Dopa Record uses the same processed pixels for preview and recording. */
+.record-setup{margin:20px 0;padding:18px;border:1px solid #387266;border-radius:20px;background:#183c3420;font-size:14px}.record-setup label{display:flex;gap:10px;align-items:center;margin:12px 0}.record-setup input{accent-color:#347d70;width:18px;height:18px}.record-setup select{max-width:100%;padding:9px;border-radius:10px}.record-setup .muted{font-size:12px;margin:8px 0}#setup-preview{width:100%;max-height:400px;object-fit:contain;background:#102c29;border-radius:15px}#private-scene{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}#play.masked #camera{opacity:0}#canvas{z-index:2}.record-indicator{position:absolute;bottom:18px;right:16px;font-size:10px;letter-spacing:.08em;padding:7px 10px;border-radius:20px;color:#ddfff3;background:#15342de0;pointer-events:none}.record-result{padding:16px 0}.record-result progress{width:100%;accent-color:#347d70}.record-result video{width:100%;max-height:65vh;background:#102c29;border-radius:16px}.record-result .card-actions{flex-wrap:wrap}.record-result .muted{font-size:12px}#result{max-height:90dvh;overflow:auto}.record-setup .eyebrow{font-size:10px}
+
+.poc-controls{max-width:340px;font-size:12px}.poc-controls label{display:block;margin:8px 0}.poc-controls input,.poc-controls select,.poc-controls textarea{display:block;max-width:100%;width:100%;box-sizing:border-box}.poc-controls p{white-space:normal}
+
+.face-notice{position:absolute;left:14px;bottom:64px;max-width:270px;padding:8px 12px;border-radius:14px;font-size:11px;color:#effff7;background:#15342de8;pointer-events:none;z-index:2}.record-result .secondary-button{border:1px solid #528d7e;border-radius:30px;padding:14px 20px;color:#173c32;background:#e4eee8;font-weight:700;font-size:12px;min-height:44px;cursor:pointer}.record-result button:disabled{opacity:.5;cursor:default}
+
+.record-setup summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:700;gap:12px}.record-setup summary small{font-size:10px;letter-spacing:.06em;white-space:nowrap}.record-setup[open] summary{margin-bottom:16px}.record-setup:not([open]){padding:14px 16px;margin:14px 0}.record-setup[open] .eyebrow{margin-bottom:10px}

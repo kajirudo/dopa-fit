@@ -1,5 +1,6 @@
 * text=auto eol=lf
 vendor/** -text
+optional/** -text
 models/** -text
 licenses/** -text
 assets/** -text

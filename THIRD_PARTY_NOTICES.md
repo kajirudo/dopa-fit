@@ -28,4 +28,12 @@ LLVMの例外条件と追加表示は[compiler-rt](licenses/compiler-rt-LICENSE.
 
 npm registry／jsDelivr／TF Hubは開発時の取得経路です。一般利用時は同一配信元のローカルファイルを読み、CDNへ接続しません。CDNの使用とパッケージのライセンスは区別しています。
 
-MediaPipe Tasks、外部フォント、録音音源は採用していません。Pose DetectionのUMDファイルにMediaPipe対応コードは含まれますが、MediaPipeランタイム・モデルを取得／起動する経路は選択しません。音楽とHIT音はDopa Fit独自のWeb Audio合成です。ロゴ・アイコン・CSS背景は新規制作。AI生成キャラクターの制作記録は[asset-audit](docs/asset-audit.md)、素材の扱いは[assets/LICENSE](assets/LICENSE.md)を参照してください。
+外部フォント、録音音源は採用していません。Pose DetectionのUMDファイルにMediaPipe対応コードは含まれますが、通常のPoseはMoveNetです。Face Mask／背景選択では、別のMediaPipe Tasksランタイムを端末内で起動します。音楽とHIT音はDopa Fit独自のWeb Audio合成です。ロゴ・アイコン・CSS背景は新規制作。AI生成キャラクターの制作記録は[asset-audit](docs/asset-audit.md)、素材の扱いは[assets/LICENSE](assets/LICENSE.md)を参照してください。
+
+## Face Mask / Dopa Recordの追加配布物
+
+- MediaPipe Tasks Vision 1.0.1（Apache-2.0）：npm tarballから無改変で配布。SIMD／非SIMD WASMとJSローダーを同一配信元から遅延取得します。[上流LICENSE全文](licenses/mediapipe-LICENSE.txt)。
+- MediaPipe Face Detector、Face Landmarker、Selfie Segmenter：公式配布のfloat16 version 1を固定しています。取得URL・サイズ・SHA-256は[Record依存マニフェスト](docs/record-dependency-manifest.json)。顔追跡方式は実機PoCが終わるまで未確定です。
+- Mediabunny 1.61.0（MPL-2.0）：無改変のES module bundleを配布。[LICENSE全文](licenses/mediabunny-LICENSE.txt)。対応するソースは[固定版npm tarball](https://registry.npmjs.org/mediabunny/-/mediabunny-1.61.0.tgz)内の`package/src/`です。独自のアプリコードのMITとライセンスを分けています。
+
+追加のライブラリ・モデルは約28.5MBの独立した任意キャッシュです。カメラ素材や完成動画はこのキャッシュに保存しません。配布バイナリのハッシュを`audit:files`で検証します。

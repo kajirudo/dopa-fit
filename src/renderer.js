@@ -33,17 +33,17 @@ export class Renderer {
     const ctx = this.ctx; ctx.clearRect(0, 0, this.width, this.height);
     const feedback = game?.energy, advanced = game?.phase >= 3, cycle=game?.presentationCycle||feedback?.cycle, fever = cycle === 'FEVER', reduced = this.particles.reduced;
     this.inFever = fever;
-    const stage=feverStage(feedback?.feverLevel);this.feverLevel=stage.level;
+    const stage=feverStage(feedback?.presentedStageLevel||feedback?.feverLevel);this.feverLevel=stage.level;
     const beat = reduced ? 0 : Math.exp(-(seconds % (60 / 112)) / (60 / 112) * 6);
     this.particles.limit = Math.min(this.particleBudget || 240, game?.phase === 1 ? 80 : fever ? 160+16*stage.level : 160);
     if (advanced) {
       const cx = this.width / 2, cy = this.height * .48, radius = Math.max(this.width, this.height) * .75;
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, fever ? `rgba(${stage.rgb},${.10+stage.level*.018+beat*.10})` : `rgba(133,217,192,${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      gradient.addColorStop(0, fever ? `rgba(${stage.rgb},${.10+stage.level*.018+beat*.10})` : `rgba(${feedback?.presentedStageLevel?stage.rgb:"133,217,192"},${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient; ctx.fillRect(0, 0, this.width, this.height);
       if (fever && !reduced) {
         const rays = this.particleBudget === 80 ? 6 : stage.level===5?28:8+stage.level*3;
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(seconds * (.08+stage.level*.025)); ctx.fillStyle = `rgba(${stage.rgb},${.025 + beat * .018})`;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(seconds * (.08+stage.level*.025) * (feedback?.variant==='waves'?-1:1)); ctx.fillStyle = `rgba(${stage.rgb},${.025 + beat * .018})`;
         for (let i = 0; i < rays; i++) { ctx.rotate(Math.PI * 2 / rays); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, radius, -.07, .07); ctx.closePath(); ctx.fill(); }
         ctx.restore();
         // Upper stages keep celebrating on the beat, beyond the initial title.
@@ -54,15 +54,33 @@ export class Renderer {
           for (const x of [this.width*.08,this.width*.92]) this.particles.burst(x,y,stage.color,{count:stage.level===5?22:stage.level*3,power:.7,confetti:true,life:.55});
         }
         if (stage.level === 5) {
+          const variant=feedback?.variant||'meteor';
+          ctx.save();ctx.lineWidth=2;ctx.strokeStyle='#ffe486';ctx.globalAlpha=.22;
+          if(variant==='meteor')for(let i=0;i<(this.particleBudget===80?4:8);i++){
+            const p=(seconds*.22+i/8)%1,x=(i*.618%1)*this.width+p*this.width*.3,y=p*this.height;
+            ctx.beginPath();ctx.moveTo(x-22,y-46);ctx.lineTo(x,y);ctx.stroke();
+          }
+          if(variant==='rings')for(let i=0;i<5;i++){
+            const p=(seconds*.8+i/5)%1;ctx.globalAlpha=(1-p)*.18;ctx.beginPath();ctx.ellipse(cx,cy,this.width*(.1+p*.65),this.height*(.05+p*.35),0,0,Math.PI*2);ctx.stroke();
+          }
+          if(variant==='waves')for(const side of [-1,1])for(let wave=0;wave<3;wave++){
+            ctx.globalAlpha=.12;ctx.strokeStyle=wave%2?stage.color:'#ffe486';ctx.beginPath();
+            for(let y=0;y<=this.height;y+=24){const edge=side<0?0:this.width,x=edge-side*(16+wave*14+Math.sin(y/90-seconds*3+wave)*12);if(y===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();
+          }
+          if(variant==='star-rain')for(let i=0;i<(this.particleBudget===80?12:32);i++){
+            const x=(i*.618%1)*this.width,y=((i*.381+seconds*.2)%1)*this.height;ctx.globalAlpha=.2;ctx.fillStyle=i%2?stage.color:'#ffe486';ctx.beginPath();
+            for(let k=0;k<10;k++){const angle=k*Math.PI/5-Math.PI/2,r=k%2?2:5;if(k===0)ctx.moveTo(x+Math.cos(angle)*r,y+Math.sin(angle)*r);else ctx.lineTo(x+Math.cos(angle)*r,y+Math.sin(angle)*r);}ctx.closePath();ctx.fill();
+          }
+          ctx.restore();
           ctx.strokeStyle=stage.color;ctx.lineWidth=2;
           for(let i=0;i<3;i++) {
-            const wave=(seconds*.55+i/3)%1;
+            const wave=(seconds*(feedback?.variant==='rings'?.8:.55)+i/3)%1;
             ctx.globalAlpha=(1-wave)*.16;
             ctx.beginPath();ctx.ellipse(cx,cy,this.width*(.2+wave*.65),this.height*(.12+wave*.4),-.2,0,Math.PI*2);ctx.stroke();
           }
           // Small star glints add density without hiding hands or target labels.
           for(let i=0;i<(this.particleBudget===80?8:24);i++) {
-            const x=(i*.61803398875%1)*this.width,y=((i*.381966+seconds*.025)%1)*this.height;
+            const x=(i*.61803398875%1)*this.width,y=((i*.381966+seconds*(feedback?.variant==='star-rain'?.16:feedback?.variant==='meteor'?.09:.025))%1)*this.height;
             const size=2+Math.sin(seconds*3+i)**2*4;
             ctx.globalAlpha=.15+Math.sin(seconds*2+i)**2*.3;ctx.strokeStyle=i%2?stage.color:'#ffe486';
             ctx.beginPath();ctx.moveTo(x-size,y);ctx.lineTo(x+size,y);ctx.moveTo(x,y-size);ctx.lineTo(x,y+size);ctx.stroke();
@@ -74,7 +92,7 @@ export class Renderer {
       // Beat bars sit along the floor, leaving the camera and targets readable.
       if (!reduced) for (let i = 0; i < 18; i++) {
         const height = (6 + 12 * beat) * (.45 + .55 * Math.sin(i * 1.7 + seconds * 2) ** 2) * (1 + (feedback?.layer || 0) * .15);
-        ctx.fillStyle = fever ? stage.color : '#85d9c0'; ctx.globalAlpha = .18; ctx.fillRect(12 + i * (this.width * .65 / 18), this.height - height - 8, 4, height);
+        ctx.fillStyle = fever || feedback?.presentedStageLevel ? stage.color : '#85d9c0'; ctx.globalAlpha = .18; ctx.fillRect(12 + i * (this.width * .65 / 18), this.height - height - 8, 4, height);
       }
       ctx.globalAlpha = 1;
       if(cycle==='RISE'&&!reduced){ctx.strokeStyle=stage.color;ctx.lineWidth=3;for(let i=0;i<3;i++){const p=(seconds*1.4+i/3)%1;ctx.globalAlpha=p*.3;ctx.beginPath();ctx.arc(cx,cy,40+(1-p)*this.width*.6,0,Math.PI*2);ctx.stroke();}ctx.globalAlpha=1;}
@@ -145,7 +163,7 @@ export class Renderer {
       marker.x += (p.x - marker.x) * factor; marker.y += (p.y - marker.y) * factor;
       const trail = this.trails[name] ??= []; trail.push({ ...marker, at: now }); while (trail.length > 16 || trail[0]?.at < now - 240) trail.shift();
       if (!reduced && trail.length > 1) {
-        ctx.lineCap = 'round'; ctx.strokeStyle = color;
+        ctx.lineCap = 'round'; ctx.strokeStyle = (feedback?.presentedStageLevel||0)>=3?stage.color:color;
         for (let i = 1; i < trail.length; i++) { ctx.globalAlpha = opacity * .8 * (i / trail.length) ** 2; ctx.lineWidth = 2 + i / trail.length * 10; ctx.beginPath(); ctx.moveTo(trail[i-1].x, trail[i-1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke(); }
         ctx.globalAlpha = 1;
       }

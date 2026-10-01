@@ -13,12 +13,13 @@ export class MusicEngine {
     const ctx=this.audio.ctx;if(this.timer===null || !this.audio.ready || ctx?.state!=='running' || !this.segments.length)return null;
     const segment=[...this.segments].reverse().find(s=>s.at<=ctx.currentTime)||this.segments[0];
     const beats=Math.max(0,segment.beats+(ctx.currentTime-segment.at)*segment.bpm/60);
-    return {beats,bpm:segment.bpm,cycle:segment.cycle,token:segment.token,beatMs:60000/segment.bpm,seconds:beats*60/segment.bpm};
+    return {beats,bpm:segment.bpm,cycle:segment.cycle,token:segment.token,beatMs:60000/segment.bpm,stageLevel:segment.stageLevel,variant:segment.variant,seconds:beats*60/segment.bpm};
   }
   get clockSeconds() { const clock=this.clock;return clock?clock.beats*beatSeconds:null; }
   stop() { const clock=this.clock;if(clock)this.savedBeat=clock.beats;clearInterval(this.timer);this.timer=null; }
   capture(at) {
-    const state=this.getState();this.layer=state.layer;this.cycle=state.cycle;this.feverLevel=state.feverLevel||1;
+    const state=this.getState();this.layer=state.layer;this.cycle=state.cycle;this.feverLevel=Math.max(state.stageLevel||0,state.feverLevel||1);
+    this.stageLevel=state.stageLevel??state.feverLevel??0;this.variant=state.variant||'meteor';
     this.token=state.lastFeverEnergy ?? this.feverLevel;
     if(this.cycle==='FEVER'&&this.token!==this.lastDropToken){
       if(this.riseToken!==this.token){this.riseToken=this.token;this.riseEndsStep=this.step+(16-this.step%16);}
@@ -26,7 +27,7 @@ export class MusicEngine {
       else {this.lastDropToken=this.token;this.dropStep=this.step;}
     }
     this.bpm=this.cycle==='FEVER'?feverStage(this.feverLevel).bpm:this.cycle==='REST'?REST_BPM:BASE_BPM;
-    if(!this.segments.length || this.segments.at(-1).bpm!==this.bpm || this.segments.at(-1).cycle!==this.cycle || this.segments.at(-1).token!==this.token)this.segments.push({at,beats:this.step/4,bpm:this.bpm,cycle:this.cycle,token:this.token});
+    if(!this.segments.length || this.segments.at(-1).bpm!==this.bpm || this.segments.at(-1).cycle!==this.cycle || this.segments.at(-1).token!==this.token || this.segments.at(-1).stageLevel!==this.stageLevel || this.segments.at(-1).variant!==this.variant)this.segments.push({at,beats:this.step/4,bpm:this.bpm,cycle:this.cycle,token:this.token,stageLevel:this.stageLevel,variant:this.variant});
     this.segments=this.segments.slice(-8);this.origin=at-this.step/4*60/this.bpm;
     this.audio.setMusicStyle?.(this.cycle,this.feverLevel,at);
     if(this.cycle==='RISE')this.audio.setBuildUp?.(at,(this.riseEndsStep-this.step)*60/this.bpm/4);
@@ -52,7 +53,7 @@ export class MusicEngine {
       return;
     }
     if(this.cycle==='FEVER') {
-      const level=feverStage(this.feverLevel).level,root=[48,45,40,43][bar%4];
+      const level=feverStage(this.feverLevel).level,variation=Math.max(0,['meteor','rings','waves','star-rain'].indexOf(this.variant)),root=[48,45,40,43][bar%4];
       const kicks=level===2?[0,4,6,8,12,14]:level===4?[0,3,6,8,11,14]:[0,4,8,12];
       if(kicks.includes(s))a.play('club-kick',t);
       if(s===4||s===12)a.play(level>=4?'snare':'clap',t);
@@ -64,18 +65,20 @@ export class MusicEngine {
       if(bassSteps.includes(s))a.play(level>=3?'acid-bass':'pulse-bass',t,root);
       const arps=[[72,76,79,84],[69,72,76,81],[64,67,74,76],[67,72,74,79]],arp=arps[bar%4];
       if(level===1&&s%2===0)a.play('pluck',t,[72,76,79,81,79,76,74,72][s/2]);
-      if(level===2&&[0,3,6,7,10,12,14,15].includes(s))a.play('pluck',t,arp[s%4]);
-      if(level===3||level===5)a.play('pluck',t,arp[s%4]);
+      if(level===2&&[0,3,6,7,10,12,14,15].includes(s))a.play('pluck',t,arp[(s+(level===5?variation:0))%4]);
+      if(level===3||level===5){const patterns=[[0,1,2,3],[0,2,3,2],[1,3,0,2],[3,2,1,0]];a.play('pluck',t,arp[level===5?patterns[variation][s%4]:s%4]);}
       if(level===4&&s%2===1)a.play('pluck',t,arp[(s+bar)%4]);
       if(level>=4&&[2,6,10,14].includes(s))for(const note of [[60,64,67],[57,60,64],[52,55,62],[55,60,62]][bar%4])a.play('rave',t,note);
+      if(level===5&&variation>0&&s===15)a.play('pluck',t,[84,86,88,91][variation]);
       if(level>=3&&bar%4===3&&[13,14,15].includes(s))a.play('snare',t);
       return;
     }
     if(s%4===0)a.play('kick',t);
     if(this.layer>=1&&s%(rest?4:2)===0)a.play('hat',t);
     if(this.layer>=2&&(s===4||s===12))a.play('snare',t);
-    if(this.layer>=3&&s%4===0)a.play('bass',t,[36,45,40,43][bar%4]);
-    if(!rest&&this.layer>=4&&s%4===2)a.play('synth',t,[60,64,67,69][(bar+s/2)%4]);
-    if(!rest&&this.layer>=5&&s%4===0)a.play('melody',t,[72,76,79,81,79,76,74,72][step/2%8]);
+    if(this.layer>=3&&(this.stageLevel===2&&!rest?[0,3,6,8,11,14].includes(s):s%4===0))a.play(this.stageLevel>=2?'pulse-bass':'bass',t,[36,45,40,43][bar%4]);
+    if(!rest&&this.layer>=4&&s%4===2)a.play(this.stageLevel>=3?'pluck':'synth',t,[60,64,67,69][(bar+s/2)%4]);
+    if(!rest&&this.layer>=5&&s%(this.stageLevel===5?2:4)===0)a.play(this.stageLevel>=3?'pluck':'melody',t,[72,76,79,81,79,76,74,72][Math.floor(step/2)%8]);
+    if(!rest&&this.stageLevel>=4&&s===0)for(const note of [60,64,67])a.play('rave',t,note);
   }
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Regenerate cache-manifest.js with `npm run audit:files` after changing a release.
-importScripts('./cache-manifest.js');
+importScripts('./cache-manifest.js','./optional-manifest.js');
 const cacheName = `dopa-fit-${self.DOPA_CACHE.version}`;
 const requests = new Map();
 self.addEventListener('install', event => event.waitUntil((async () => {
@@ -20,7 +20,7 @@ self.addEventListener('install', event => event.waitUntil((async () => {
   // An update waits. It never replaces the running game automatically.
 })()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
-  for (const name of await caches.keys()) if (name.startsWith('dopa-fit-') && name !== cacheName) await caches.delete(name);
+  for (const name of await caches.keys()) if ((name.startsWith('dopa-fit-') && name !== cacheName) || (name.startsWith('dopa-record-') && name !== `dopa-record-${self.DOPA_OPTIONAL.version}`)) await caches.delete(name);
   await self.clients.claim();
 })()));
 self.addEventListener('fetch', event => {
@@ -28,6 +28,13 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || url.origin !== scope.origin) return;
   let path = url.pathname.slice(scope.pathname.length);
   if (!path || path === 'index.html') path = 'index.html';
+  const optional=self.DOPA_OPTIONAL.files.find(f=>f.path===path);
+  if(optional){event.respondWith((async()=>{
+    const cache=await caches.open(`dopa-record-${self.DOPA_OPTIONAL.version}`),stored=await cache.match(event.request);if(stored)return stored;
+    const response=await fetch(event.request);if(!response.ok)return response;
+    const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await response.clone().arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');
+    if(hash!==optional.sha256)return new Response('Optional asset integrity mismatch',{status:503});await cache.put(event.request,response.clone());return response;
+  })());return;}
   if (!self.DOPA_CACHE.files.some(f => f.path === path)) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName), stored = await cache.match(new URL(path, self.registration.scope));
