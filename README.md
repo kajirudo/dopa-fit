@@ -8,7 +8,7 @@
 
 ![Dopa Fitの応援ロボット](assets/characters/idle.png)
 
-現在は**公開候補版**です。実機iPhone Safari／Android Chromeの受け入れ試験と、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。デスクトップの自動検証を実機検証の代わりにはしていません。
+現在は**公開候補版**です。Androidで音と手振りが動いたという利用者報告があり、iPhoneの無音報告を受けて音声開始・復旧を改善しています。機種／OSの特定、両OSの受け入れ試験、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。
 
 ## Concept
 
@@ -31,11 +31,15 @@ Movement creates reward. 身体を動かすほど音楽の編成と光の演出�
 5. 手の動きでビートを育てる。ENERGYが100増えるたびFEVERへ。
 6. ひと息つきたいときは一時停止。再開しても成果はそのまま。
 
+START時に短い確認音を鳴らします。音が聞こえない場合は、プレイ画面の「音を有効にする」／「音を試す」をタップしてください。音声だけを再起動し、ENERGYと時間を保持します。端末の音量・消音設定も確認できます。対応ブラウザでは音楽再生用Audio Sessionを設定します。実機での修正確認は継続中です。[音声の確認手順](docs/audio-compatibility.md)。
+
+ターゲット外の手振りにも控えめなペンタトニック音と「MOVE +1」を返します。両手合計で最大2回／秒、静止・再検出では発音しません。HITと同時の場合はHITの音と表示を優先します。
+
 「カメラなしで試す」はドラッグ／タップで同じHIT・音楽を試すデモです。運動記録にもデモと表示します。3分コースではリーチ・両手上げ・ステップ・上下動・自由運動・クールダウンを案内します。上下動認識はフォーム採点ではありません。身体全体が映る配置が必要です。
 
 ## Supported Devices
 
-主対象はiPhone Safari縦画面（iPhone 12相当以降を性能目安）とAndroid Chromeです。**確認済み実機の機種・OSはまだありません。** デスクトップChromiumでのテスト結果を`docs/verification.md`へ記録します。カメラはHTTPSまたはPCのlocalhostで動作します。LANの通常HTTPでは動作しません。
+主対象はiPhone Safari縦画面（iPhone 12相当以降を性能目安）とAndroid Chromeです。2026-10-01の利用者報告：Androidでは音と手振りが動作、iPhoneでは音が出ない。機種・OS・ブラウザ版は未特定で、全実機ゲートの合格ではありません。自動検証と報告は`docs/verification.md`へ記録します。カメラはHTTPSまたはPCのlocalhostで動作します。LANの通常HTTPでは動作しません。
 
 ## Local Development
 
@@ -64,6 +68,8 @@ npx playwright install chromium
 npm run test:browser
 npm run test:pwa
 ```
+
+音声の開始・復旧は`npx playwright install webkit`後、`npm run test:audio-browser`でChromiumとデスクトップWebKitを検証します。WebKitの結果は実機iPhoneの消音スイッチやスピーカー出力を保証しません。
 
 ブラウザ試験は自分で一時的なlocalhostサーバーを起動し、合成入力・偽カメラで検証します。画像や実写テスト映像を保存しません。結果と画面のスクリーンショットは無視対象の`test-results/`へ出力します。`DOPA_BASE_URL`指定時はそのURLを使います。
 

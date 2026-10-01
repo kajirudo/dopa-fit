@@ -72,6 +72,19 @@ test('calibration requires stable shoulders and both wrists', () => {
   for(let t=0;t<=800;t+=100)result=manager.update(nearEdge,t);
   assert.equal(result.ready,undefined);assert.ok(result.message.includes('画面内'));
 });
+test('free waving emits positioned MOVE feedback without a target, capped at two rewards per second', () => {
+  const game = new GameEngine(calibration, 2);
+  game.process(pose(180, 370, 1, 0), 0);
+  const events = game.process(pose(210, 370, 2, 50), 50);
+  assert.deepEqual(events, [{ type: 'move', wristId: 'left_wrist', x: 210, y: 370, at: 50 }]);
+  assert.equal(game.energy.energy, 1); assert.equal(game.energy.hits, 0);
+  for (let i = 3; i <= 10; i++) assert.deepEqual(game.process(pose(i % 2 ? 180 : 210, 370, i, i * 50), i * 50), []);
+  assert.equal(game.energy.energy, 1);
+  assert.equal(game.process(pose(180, 370, 11, 550), 550)[0].type, 'move');
+  assert.equal(game.energy.energy, 2);
+  const missing = pose(250, 370, 13, 650); missing.points.left_wrist.valid = false; game.process(missing, 650);
+  assert.deepEqual(game.process(pose(270, 370, 14, 700), 700), []);
+});
 test('raised hands count once, require return, and do not count a dropout jump', () => {
   const tracker = new WorkoutTracker(), raised = pose(130, 140); raised.points.right_wrist = { x: 230, y: 140, valid: true };
   tracker.process(pose(130, 350), calibration, -1);

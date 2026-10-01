@@ -3,6 +3,14 @@ import { ParticleSystem } from './effects.js';
 export class Renderer {
   constructor(canvas) { this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.particles = new ParticleSystem(); this.markers = {}; this.trails = {}; this.dpr = 1.5; this.characters = {}; for (const name of ['idle', 'cheer', 'fever']) { const img = new Image(); img.src = new URL(`../assets/characters/${name}.png`, import.meta.url).href; this.characters[name] = img; } }
   resize() { const rect = this.canvas.getBoundingClientRect(); this.width = rect.width; this.height = rect.height; const dpr = Math.min(devicePixelRatio || 1, this.dpr); this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr); this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.markers = {}; this.trails = {}; }
+  reward(event) {
+    this.rewards ??= [];
+    const move = event.type === 'move', color = event.wristId === 'right_wrist' || event.targetId === 1 ? '#85d9c0' : '#ffb192';
+    this.rewards = this.rewards.filter(reward => Math.hypot(event.x - reward.x, event.y - reward.y) > 64);
+    this.rewards.push({ ...event, color, label: move ? 'MOVE +1' : event.type === 'hit' ? 'HIT +5' : 'NICE +5' });
+    if (this.rewards.length > 8) this.rewards.shift();
+    if (!move) this.particles.burst(event.x, event.y, color);
+  }
   draw(pose, game, now, dt) {
     const ctx = this.ctx; ctx.clearRect(0, 0, this.width, this.height);
     const feedback = game?.energy;
@@ -23,6 +31,14 @@ export class Renderer {
       ctx.fillStyle = color; ctx.beginPath(); ctx.arc(marker.x, marker.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
     }
     this.particles.update(dt); this.particles.draw(ctx);
-    if (game && game.phase >= 3) { const img = this.characters[feedback?.cycle === 'FEVER' ? 'fever' : now - (game.lastHitAt || 0) < 900 ? 'cheer' : 'idle']; if (img.complete && img.naturalWidth) { const size = Math.min(88, this.width * .18); ctx.drawImage(img, this.width - size - 8, this.height - size - 8, size, size); } }
+    this.rewards = (this.rewards || []).filter(reward => now - reward.at < 650);
+    for (const reward of this.rewards) {
+      const age = (now - reward.at) / 650, x = Math.max(48, Math.min(this.width - 48, reward.x)), y = Math.max(28, reward.y - 22 - (this.particles.reduced ? 0 : age * 24));
+      ctx.globalAlpha = Math.min(1, (1 - age) * 3); ctx.fillStyle = reward.color; ctx.font = '700 14px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(reward.label, x, y);
+      if (reward.type === 'move' && !this.particles.reduced) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 12 + age * 22, 0, Math.PI * 2); ctx.strokeStyle = reward.color; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+    if (game && game.phase >= 3) { const img = this.characters[feedback?.cycle === 'FEVER' ? 'fever' : now - (game.lastFeedbackAt ?? -Infinity) < 900 ? 'cheer' : 'idle']; if (img.complete && img.naturalWidth) { const size = Math.min(88, this.width * .18); ctx.drawImage(img, this.width - size - 8, this.height - size - 8, size, size); } }
   }
 }

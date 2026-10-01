@@ -9,3 +9,5 @@
  .privacy-page h1 { font-size:clamp(30px,5vw,48px); line-height:1.4; margin:32px 0; }
  .privacy-page h2 { margin:38px 0 10px; font-size:22px; }
  .privacy-page .primary-button { display:inline-flex; text-decoration:none; margin-top:24px; }
+.audio-check{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 9px;font-size:10px;color:#b4d0c5}.audio-check button{min-height:44px;padding:10px 16px;border-color:#719c85;color:#d1efdc}.audio-check.needs-audio{color:#ffcfb9}.audio-check.needs-audio button{background:#ffb192;color:#162a27;border-color:#ffb192}
+.audio-check{flex-wrap:wrap}.audio-help{width:100%;font-size:9px;line-height:1.7;color:#b4d0c5}

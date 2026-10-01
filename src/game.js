@@ -60,8 +60,9 @@ export class EnergySystem {
 }
 export class MovementTracker {
   constructor() { this.reset(); }
-  reset() { this.anchors = {}; this.lastReward = -Infinity; this.lastMotion = -Infinity; }
+  reset() { this.anchors = {}; this.lastReward = -Infinity; this.lastMotion = -Infinity; this.event = null; }
   process(pose, calibration, now) {
+    this.event = null;
     const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
     if (!l?.valid || !r?.valid) { this.anchors = {}; return false; }
     const center = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 };
@@ -70,11 +71,11 @@ export class MovementTracker {
       const p = pose.points[name];
       if (!p?.valid) { delete this.anchors[name]; continue; }
       const relative = { x: p.x - center.x, y: p.y - center.y };
-      if (this.anchors[name] && distance(relative, this.anchors[name]) >= .15 * calibration.shoulder) { this.anchors[name] = relative; moved = true; }
+      if (this.anchors[name] && distance(relative, this.anchors[name]) >= .15 * calibration.shoulder) { this.anchors[name] = relative; moved = { type: 'move', wristId: name, x: p.x, y: p.y, at: now }; }
       this.anchors[name] ??= relative;
     }
     if (moved) this.lastMotion = now;
-    if (moved && now - this.lastReward >= 500) { this.lastReward = now; return true; }
+    if (moved && now - this.lastReward >= 500) { this.lastReward = now; this.event = moved; return true; }
     return false;
   }
 }
@@ -124,9 +125,11 @@ export class GameEngine {
     const hits = this.targets.process(pose, now);
     if (hits.length) this.lastHitAt = now;
     for (const hit of hits) this.energy.reward('hit');
-    if (this.phase >= 2 && this.movement.process(pose, this.calibration, now)) this.energy.reward('move');
+    const moves = [];
+    if (this.phase >= 2 && this.movement.process(pose, this.calibration, now)) { this.energy.reward('move'); moves.push(this.movement.event); }
     const exercises = this.phase >= 4 ? this.workout.process(pose, this.calibration, now) : [];
     for (const kind of exercises) this.energy.reward('exercise');
-    return [...hits.map(hit => ({ type: 'hit', ...hit })), ...exercises.map(kind => ({ type: 'exercise', kind, x: this.calibration.center.x, y: this.calibration.center.y, at: now }))];
+    if (hits.length || moves.length || exercises.length) this.lastFeedbackAt = now;
+    return [...hits.map(hit => ({ type: 'hit', ...hit })), ...moves, ...exercises.map(kind => ({ type: 'exercise', kind, x: this.calibration.center.x, y: this.calibration.center.y, at: now }))];
   }
 }

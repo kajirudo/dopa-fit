@@ -34,6 +34,24 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({path:path.join(root,'test-results/mobile.png'),fullPage:true}); check('Landing and 390px portrait layout');
     await page.locator('#demo').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING');
+    assert.equal(await page.evaluate(()=>window.testApp.audio.ready),true);
+    // Free movement receives a softer note even when it never enters a circle.
+    const wave = await page.evaluate(() => {
+      const a=window.testApp,c=a.game.calibration; let notes=0;
+      const original=a.audio.move.bind(a.audio);a.audio.move=()=>{notes++;original();};
+      const initial=a.game.energy.energy, now=performance.now();
+      const frame=(x,id,t)=>({id,capturedAt:t,points:{left_shoulder:{x:c.center.x-c.shoulder/2,y:c.center.y,valid:true},right_shoulder:{x:c.center.x+c.shoulder/2,y:c.center.y,valid:true},left_wrist:{x,y:c.center.y+c.shoulder,valid:true},right_wrist:{x:c.center.x,y:c.center.y+c.shoulder,valid:true}}});
+      a.feedback(a.game.process(frame(c.center.x,++a.pose.sequence,now),now));
+      a.feedback(a.game.process(frame(c.center.x+.3*c.shoulder,++a.pose.sequence,now+1),now+1));
+      a.audio.move=original;
+      return {notes,added:a.game.energy.energy-initial,label:a.renderer.rewards.at(-1)?.label};
+    });assert.equal(wave.notes,1);assert.equal(wave.added,1);assert.equal(wave.label,'MOVE +1');check('Free waving → positioned MOVE +1 and pentatonic note');
+    const audioRecovery = await page.evaluate(() => {const a=window.testApp;window.beforeAudio=a.audio.ctx;return{energy:a.game.energy.energy,seconds:a.seconds};});
+    await page.locator('#audio-retry').click();await page.waitForFunction(()=>window.testApp.audio.ready&&!window.testApp.audio.pending);
+    assert.equal(await page.evaluate(()=>window.beforeAudio.state),'closed');assert.equal(await page.evaluate(()=>window.testApp.audio.ctx!==window.beforeAudio),true);
+    assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=audioRecovery.energy);assert.ok(await page.evaluate(()=>window.testApp.seconds)>=audioRecovery.seconds);
+    assert.ok(await page.evaluate(()=>window.testApp.music.timer!==null));check('Audio retry replaces context and preserves progress / music');
+    assert.equal(await page.evaluate(()=>['audio-retry','mute','pause','volume','reduced','finish'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;})),true);
     const hit = async()=>{
       const t=await page.evaluate(()=>({...window.testApp.game.targets.targets[0]})), box=await page.locator('#canvas').boundingBox();
       await page.mouse.move(box.x+195,box.y+Math.min(400,box.height-30)); await page.waitForTimeout(60);

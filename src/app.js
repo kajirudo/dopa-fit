@@ -18,6 +18,7 @@ export class AppController {
     this.state = 'IDLE'; this.generation = 0; this.seconds = 0; this.game = null; this.demo = false; this.pointer = null; this.mapped = null; this.lastFrame = 0; this.lastInference = 0; this.inferenceInterval = 50; this.latencies = []; this.frameTimes = []; this.poseTimes = []; this.shiftSince = 0; this.countdownAt = null;
     this.music = new MusicEngine(this.audio, () => this.game?.energy || { layer: 0, cycle: 'BUILD' });
     this.bind();
+    this.audio.onStatus = () => { this.updateAudio(); if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     this.resize = () => { if (this.state === 'IDLE' || this.state === 'FINISHED') return; this.renderer.resize(); if (['PLAYING', 'COUNTDOWN', 'CALIBRATING'].includes(this.state)) this.beginCalibration(); };
     new ResizeObserver(() => { const r = $('canvas').getBoundingClientRect(); if (Math.abs(r.width - (this.renderer.width || 0)) > 2 || Math.abs(r.height - (this.renderer.height || 0)) > 2) this.resize(); }).observe($('stage'));
     addEventListener('orientationchange', () => setTimeout(this.resize, 150));
@@ -36,10 +37,11 @@ export class AppController {
     $('history-open').onclick = () => { this.renderHistory(); $('history').showModal(); };
     $('history-close').onclick = () => $('history').close();
     $('history-clear').onclick = () => { this.store.clearHistory(); this.renderHistory(); };
-    $('mute').onclick = () => { this.audio.setMuted(!this.audio.muted); $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted)); this.saveSettings(); };
+    $('mute').onclick = () => { this.audio.setMuted(!this.audio.muted); if (!this.audio.muted) this.retryAudio(); this.updateAudio(); this.saveSettings(); };
+    $('audio-retry').onclick = () => this.retryAudio();
     const settings = this.store.read('settings', {});
     $('volume').value = Math.min(100, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 55)); this.audio.volume = Number($('volume').value) / 100;
-    $('volume').oninput = () => { this.audio.setVolume(Number($('volume').value) / 100); this.saveSettings(); };
+    $('volume').oninput = () => { this.audio.setVolume(Number($('volume').value) / 100); this.updateAudio(); this.saveSettings(); };
     $('reduced').checked = settings.reduced ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.renderer.particles.reduced = $('reduced').checked;
     $('reduced').onchange = () => { this.renderer.particles.reduced = $('reduced').checked; this.saveSettings(); };
@@ -50,17 +52,39 @@ export class AppController {
     $('canvas').addEventListener('pointercancel', () => { this.pointer = null; });
   }
   saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked }); }
+  updateAudio() {
+    const quiet = this.audio.muted || this.audio.volume === 0;
+    $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
+    $('audio-status').textContent = this.audio.pending ? '確認音を準備中…' : quiet ? '音はOFFです' : this.audio.ready ? '音が聞こえないときは →' : 'タップして音を有効に →';
+    $('audio-retry').textContent = this.audio.ready && !quiet ? '音を試す' : '音を有効にする';
+    $('audio-retry').disabled = this.audio.pending || ['IDLE', 'FINISHED', 'PAUSED', 'ERROR'].includes(this.state);
+    $('audio-check').classList.toggle('needs-audio', !this.audio.ready && !quiet && !this.audio.pending);
+  }
+  async retryAudio() {
+    if (this.audio.pending || !['STARTING', 'CALIBRATING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return;
+    const generation = this.generation;
+    $('audio-help').classList.remove('hidden');
+    this.music.stop(); this.audio.setMuted(false);
+    if (this.audio.volume === 0) { $('volume').value = 55; this.audio.setVolume(.55); }
+    this.saveSettings();
+    try {
+      // Recreate in this click, so an interrupted/stalled iOS context is not reused.
+      const ready = await this.audio.unlock({ rebuild: true });
+      if (generation === this.generation && ready && this.state === 'PLAYING' && this.phase >= 2) this.music.start(this.seconds);
+    } catch { this.audio.pending = false; this.audio.ready = false; }
+    this.updateAudio();
+  }
   message(text, action = false, countdown = false) { $('stage-scrim').classList.remove('hidden'); $('stage-message').textContent = text; $('stage-message').classList.toggle('countdown', countdown); $('resume').classList.toggle('hidden', !action); }
   async start(demo) {
     if (!['IDLE', 'FINISHED', 'ERROR'].includes(this.state)) return;
-    this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
+    this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
+    $('audio-help').classList.add('hidden');
     $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : this.course ? '3 MIN FLOW' : this.phase === 1 ? 'FIRST REACH' : 'FREE FLOW';
     this.state = 'STARTING'; this.renderer.resize(); this.message(demo ? '音を準備しています' : 'カメラを許可してね\n音と姿勢推定を準備しています');
     const generation = ++this.generation;
     // Calls are both initiated in this user gesture, before the first await.
     try {
     const audioPromise = this.audio.unlock();
-    this.audio.ctx.onstatechange = () => { if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     const cameraPromise = demo ? Promise.resolve() : this.camera.start();
     const modelPromise = demo ? Promise.resolve() : this.pose.init();
     const cameraFailure = cameraPromise.catch(error => { if (generation === this.generation) this.fail(error); throw error; });
@@ -136,7 +160,12 @@ export class AppController {
     $('course-cue').textContent = this.course ? courseCues[Math.min(5, Math.floor(this.seconds / 30))] : '';
   }
   feedback(events) {
-    for (const event of events) { this.audio.hit(event.targetId ?? 2); this.renderer.particles.burst(event.x, event.y, event.targetId === 1 ? '#85d9c0' : '#ffb192'); }
+    const hasAccent = events.some(event => event.type !== 'move');
+    for (const event of events) {
+      if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
+      else this.audio.hit(event.targetId ?? 2);
+      this.renderer.reward(event);
+    }
   }
   updateUI(now) {
     const state = this.game?.energy;
@@ -148,8 +177,11 @@ export class AppController {
     [...$('layers').children].forEach((el, i) => { el.classList.toggle('on', !!state && i <= state.layer); el.setAttribute('aria-label', `${LAYERS[i]} ${state && i <= state.layer ? '解放済み' : '未解放'}`); });
     if (now - (this.lastMetricsAt || 0) > 1000) {
       this.lastMetricsAt = now; const sorted = [...this.latencies].sort((a, b) => a - b), fps = this.frameTimes.length ? 1000 / (this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length) : 0;
+      const audioTime = this.audio.ctx?.currentTime ?? 0;
+      if (this.state === 'PLAYING' && this.audio.ready && this.audioClock?.ctx === this.audio.ctx && audioTime <= this.audioClock.time + .001) this.audio.ready = false;
+      this.audioClock = { ctx: this.audio.ctx, time: audioTime }; this.updateAudio();
       const poseFPS = this.poseTimes.length > 1 ? (this.poseTimes.length - 1) * 1000 / (this.poseTimes.at(-1) - this.poseTimes[0]) : 0;
-      this.metrics = { state: this.state, input: this.demo ? 'demo' : 'camera', backend: this.pose.backend || 'none', canvasFPS: Math.round(fps), poseFPS: +poseFPS.toFixed(1), inferenceP95ms: Math.round(sorted[Math.floor(sorted.length * .95)] || 0), particles: this.renderer.particles.parts.length, voices: this.audio.voices.size, audioNodes: this.audio.nodeCount, tensors: globalThis.tf?.memory().numTensors ?? null, seconds: Math.floor(this.seconds), energy: state?.energy || 0 };
+      this.metrics = { state: this.state, input: this.demo ? 'demo' : 'camera', backend: this.pose.backend || 'none', canvasFPS: Math.round(fps), poseFPS: +poseFPS.toFixed(1), inferenceP95ms: Math.round(sorted[Math.floor(sorted.length * .95)] || 0), particles: this.renderer.particles.parts.length, voices: this.audio.voices.size, audioNodes: this.audio.nodeCount, audioState: this.audio.ctx?.state || 'closed', audioReady: this.audio.ready, audioTime: +audioTime.toFixed(2), tensors: globalThis.tf?.memory().numTensors ?? null, seconds: Math.floor(this.seconds), energy: state?.energy || 0 };
       $('metrics').textContent = JSON.stringify(this.metrics, null, 2);
       if (!this.demo && this.latencies.length > 30 && (this.metrics.inferenceP95ms > 90 || fps < 30)) { this.renderer.particleBudget = 80; if (this.renderer.dpr !== 1) { this.renderer.dpr = 1; this.renderer.resize(); } this.inferenceInterval = 67; }
     }
@@ -157,11 +189,12 @@ export class AppController {
   pause() {
     if (['IDLE', 'FINISHED', 'PAUSED'].includes(this.state)) return;
     this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.message('ひと息つこう\nENERGYはそのまま', true);
+    this.updateAudio();
   }
   async resume() {
     if (!['PAUSED', 'ERROR'].includes(this.state)) return;
     this.state = 'STARTING'; const generation = ++this.generation; this.message('準備しています');
-    try { const audioPromise = this.audio.unlock(), cameraPromise = this.demo ? Promise.resolve() : this.camera.start(); await Promise.all([audioPromise, cameraPromise, this.demo ? Promise.resolve() : this.pose.init()]); if (generation !== this.generation) return; this.pose.lastVideoTime = -1; this.beginCalibration(); this.lastFrame = performance.now(); this.animate(); }
+    try { const audioPromise = this.audio.unlock({ rebuild: true }), cameraPromise = this.demo ? Promise.resolve() : this.camera.start(); await Promise.all([audioPromise, cameraPromise, this.demo ? Promise.resolve() : this.pose.init()]); if (generation !== this.generation) return; this.pose.lastVideoTime = -1; this.beginCalibration(); this.lastFrame = performance.now(); this.animate(); }
     catch (error) { if (generation === this.generation) this.fail(error); }
   }
   async finish() {

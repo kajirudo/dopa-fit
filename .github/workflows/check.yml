@@ -14,6 +14,7 @@ jobs:
       - run: npm test
       - run: npm run audit:files
       - run: git diff --exit-code -- cache-manifest.js docs/distribution-manifest.json
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser
       - run: npm run test:pwa
+      - run: npm run test:audio-browser

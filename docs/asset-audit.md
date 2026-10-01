@@ -66,4 +66,6 @@ MoveNetはライブラリと別にモデルカードを確認。WASMはtfjs固�
 
 ## 追加・公開の運用
 
+2026-10-01の音声改善：`audio.js`の確認音・Audio Session設定・復旧、`app.js`の音声操作、MOVE通知と音・Canvas表示、`tests/audio.test.js`、`tools/audio-browser-check.cjs`は独自作成（分類1、MIT）。Web標準APIを利用し、第三者コードや録音素材は追加していません。参照した互換性資料は[音声記録](audio-compatibility.md)にリンクし、コードのコピーと区別します。
+
 新規ファイルや依存更新ごとに、分類・取得元・版・hash・必要表示・Modificationを追加します。不明なら「分類未確定／要確認」として配布から除外。公開履歴に入った場合は、最新版の削除だけで解決したと判断しません。現在は監査済み新規成果物から初回公開履歴を作成します。
