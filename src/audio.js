@@ -53,7 +53,7 @@ export class AudioManager {
   get nodeCount() { return this.ctx ? 2 + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
   setVolume(value) { this.volume = Math.max(0, Math.min(1, value)); if (this.ctx && this.ctx.state !== 'closed') this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * .65, this.ctx.currentTime, .02); }
   setMuted(value) { this.muted = value; this.setVolume(this.volume); }
-  play(kind, when, note = 60, priority = false) {
+  play(kind, when, note = 60, priority = false, intensity = 1) {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running') return;
     if (this.voices.size >= (priority ? 24 : 20) || this.nodeCount > 152) return;
@@ -70,7 +70,11 @@ export class AudioManager {
     } else {
       const source = oscillator(kind === 'bass' ? 'triangle' : 'sine', midiHz(note)); source.connect(gain);
       duration = kind === 'move' ? .16 : kind === 'hit' ? .24 : kind === 'bass' ? .25 : .38; peak = kind === 'move' ? .065 : kind === 'hit' ? .23 : kind === 'bass' ? .15 : .07;
-      if (kind === 'hit') { const overtone = oscillator('sine', midiHz(note + 12)); overtone.connect(gain); peak = .13; }
+      if (kind === 'hit') {
+        // A fast attack, a downward pitch flick and a consonant overtone.
+        source.frequency.exponentialRampToValueAtTime(midiHz(note) * .98, t + .09);
+        const overtone = oscillator('sine', midiHz(note + 12)); overtone.connect(gain); peak = .13 * Math.max(1, Math.min(1.35, intensity)); duration = .19;
+      }
     }
     gain.gain.setValueAtTime(.0001, t); gain.gain.linearRampToValueAtTime(peak, t + .006); gain.gain.exponentialRampToValueAtTime(.0001, t + duration);
     gain.connect(this.master);
@@ -78,7 +82,7 @@ export class AudioManager {
     let ended = 0;
     for (const source of sources) { source.onended = () => { if (++ended === sources.length) { nodes.forEach(n => n.disconnect()); this.voices.delete(voice); } }; source.start(t); source.stop(t + duration + .02); }
   }
-  hit(id, fever = false) { if (this.ctx) this.play('hit', this.ctx.currentTime, [72, 76, 79][id % 3] + (fever ? 12 : 0), true); }
+  hit(id, fever = false, intensity = 1) { if (this.ctx) this.play('hit', this.ctx.currentTime, [72, 76, 79][id % 3] + (fever ? 12 : 0), true, intensity); }
   move() { if (this.ctx) this.play('move', this.ctx.currentTime, [72, 74, 76, 79, 81, 79, 76, 74][this.moveStep++ % 8], true); }
   celebrate(kind) {
     if (!this.ctx || !['unlock', 'rally', 'fever'].includes(kind)) return;

@@ -47,11 +47,16 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
       return {notes,added:a.game.energy.energy-initial,label:a.renderer.rewards.at(-1)?.label};
     });assert.equal(wave.notes,1);assert.equal(wave.added,1);assert.equal(wave.label,'MOVE +1');check('Free waving → positioned MOVE +1 and pentatonic note');
     const audioRecovery = await page.evaluate(() => {const a=window.testApp;window.beforeAudio=a.audio.ctx;return{energy:a.game.energy.energy,seconds:a.seconds};});
+    await page.locator('#pause').click();
     await page.locator('#audio-retry').click();await page.waitForFunction(()=>window.testApp.audio.ready&&!window.testApp.audio.pending);
     assert.equal(await page.evaluate(()=>window.beforeAudio.state),'closed');assert.equal(await page.evaluate(()=>window.testApp.audio.ctx!==window.beforeAudio),true);
     assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=audioRecovery.energy);assert.ok(await page.evaluate(()=>window.testApp.seconds)>=audioRecovery.seconds);
+    await page.locator('#settings-close').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING'&&window.testApp.audio.ready);
     assert.ok(await page.evaluate(()=>window.testApp.music.timer!==null));check('Audio retry replaces context and preserves progress / music');
-    assert.equal(await page.evaluate(()=>['audio-retry','mute','pause','volume','reduced','finish'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;})),true);
+    assert.equal(await page.evaluate(()=>['pause','energy','current-sound'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;})),true);
+    assert.ok((await page.locator('#stage').boundingBox()).height>=844*.95);
+    for(const id of ['audio-retry','volume','layers','finish'])assert.equal(await page.locator('#'+id).isVisible(),false);
+    check('Full-height camera stage and minimal ENERGY / unlocked sound / Pause HUD');
     const hit = async()=>{
       const t=await page.evaluate(()=>({...window.testApp.game.targets.targets[0]})), box=await page.locator('#canvas').boundingBox();
       await page.mouse.move(box.x+195,box.y+Math.min(400,box.height-30)); await page.waitForTimeout(60);
@@ -70,18 +75,19 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.ok(rewards.energy>=100); assert.equal(rewards.layer,5); assert.equal(rewards.cycle,'FEVER'); assert.equal(rewards.audio,'running'); check('Pointer → HIT → audio → ENERGY → FEVER');
     assert.equal(capturedFever,true);
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('fever')),true);
-    assert.equal(await page.locator('#rally-count').innerText(),String(rewards.hits));
+    assert.equal(await page.locator('#rally-count').textContent(),String(rewards.hits));
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
     assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
+    await page.locator('#pause').click();
     await page.locator('#reduced').check();
     assert.equal(await page.evaluate(()=>window.testApp.renderer.particles.parts.length),0);
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('reduced-effects')),true);
     await page.locator('#reduced').uncheck();check('FEVER celebration / cumulative HITS / bounded effects / immediate motion reduction');
-    await page.locator('#pause').click(); assert.equal(await state(),'PAUSED');
-    await page.locator('#resume').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING'); assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=rewards.energy); check('Pause / recalibrate / resume preserves ENERGY');
+    assert.equal(await state(),'PAUSED');
+    await page.locator('#settings-close').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING'); assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=rewards.energy); check('Pause / recalibrate / resume preserves ENERGY');
     const voiceStats=await page.evaluate(async()=>{const a=window.testApp.audio;for(let i=0;i<100;i++)a.hit(i);const peak={voices:a.voices.size,nodes:a.nodeCount};window.testApp.music.stop();await new Promise(r=>setTimeout(r,700));return{...peak,after:a.voices.size};});
     assert.ok(voiceStats.voices<=24&&voiceStats.nodes<=160);assert.equal(voiceStats.after,0);results.voiceStats=voiceStats;check('Audio cap and complete node cleanup');
-    await page.locator('#finish').click(); await page.locator('#result').waitFor();
+    await page.locator('#pause').click();await page.locator('#finish').click(); await page.locator('#result').waitFor();
     assert.equal(await page.evaluate(()=>window.testApp.camera.stream),null); await page.locator('#result-close').click();
     await page.locator('#history-open').click(); assert.ok((await page.locator('#history-list').innerText()).includes('デモ'));await page.locator('#history-clear').click();assert.ok((await page.locator('#history-list').innerText()).includes('まだ記録'));await page.locator('#history-close').click();check('Finish / saved demo distinction / delete history');
     // Real model and fake getUserMedia video, without pretending it tests human tracking.
@@ -106,7 +112,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     await page.locator('#pause').click();assert.equal(await page.evaluate(()=>window.testApp.camera.stream),null);await page.locator('#finish').click();await page.locator('#result-close').click();check('Camera tracks released on pause and finish');
     // Only mark ready after the verified entire static cache has installed.
     await page.waitForFunction(()=>document.getElementById('offline').textContent.includes('OK'),{},{timeout:60000});
-    await context.setOffline(true);await page.reload();await attach();await page.locator('#demo').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING');check('Complete-cache offline launch and demo');await page.locator('#finish').click();await page.locator('#result-close').click();await context.setOffline(false);
+    await context.setOffline(true);await page.reload();await attach();await page.locator('#demo').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING');check('Complete-cache offline launch and demo');await page.locator('#pause').click();await page.locator('#finish').click();await page.locator('#result-close').click();await context.setOffline(false);
     const foreign=requests.filter(r=>new URL(r.url).origin!==new URL(base).origin), writes=requests.filter(r=>r.method!=='GET'||r.body);
     assert.deepEqual(foreign,[]);assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
     results.network={requestCount:requests.length,origins:[...new Set(requests.map(r=>new URL(r.url).origin))],methods:[...new Set(requests.map(r=>r.method))],external:foreign.length,payloadWrites:writes.length,paths:[...new Set(requests.map(r=>new URL(r.url).pathname))].sort()};check('No external requests, payload uploads, or console errors');

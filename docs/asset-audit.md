@@ -13,7 +13,7 @@
 | `src/app.js`, `camera.js`, `pose.js`, `coordinates.js`, `calibration.js`, `storage.js` | 1 | 新規作成、MIT。Pose API接続先は分類6を別記 | 状態遷移、座標変換、キャリブレーション、保存 | 採用可 |
 | `src/game.js`, `music.js` の体験仕様 | 2 | dopa-drillの成功による増幅という思想を参考 | カメラ入力、ENERGY、FEVER、小節の仕様は本計画。コードは独自（分類1） | 採用可 |
 | `src/audio.js` | 1 | 新規作成、MIT | Web Audio合成、独自ノート／パターン、音源解放。録音音源なし | 採用可 |
-| `src/renderer.js`, `effects.js` | 1 | 新規作成、MIT | 円、手首、Trail、Particle、キャラ表示。dopa-drillの描画式コピーなし | 採用可 |
+| `src/renderer.js`, `effects.js`, `impact.js` | 1 | 新規作成、MIT | 円、手首、Trail、Particle、キャラ表示。dopa-drillの描画式コピーなし | 採用可 |
 | UI・エフェクト・背景 | 1。成功時に演出が増す思想は2 | 独自HTML/CSS/Canvas、MIT | 外部UI画像なし | 採用可 |
 | `assets/characters/*.png` | 1（AI生成） | OpenAI画像生成。権利が存在する範囲でMIT許諾 | 新規基準キャラとその2ポーズ。縮小・PNG圧縮のみ | 採用可。AI生成の権利・独占性は保証しない |
 | ロゴ・`assets/icon.svg`・PNGアイコン | 1 | 新規制作、MIT | ロゴ文字はHTML、独自波形SVGをPNG化 | 採用可 |
@@ -65,6 +65,8 @@ MoveNetはライブラリと別にモデルカードを確認。WASMはtfjs固�
 派生プロンプトの要旨：cheer＝基準キャラの顔・色・パネル・素材を保持、両手を上げて片足を上げた応援ポーズ、透明背景。fever＝同じキャラを歓喜のジャンプ、両手・両足を上げ、周囲に小さな星3つ、文字・背景・床なし。ツール結果から各1枚を採用しました。ポーズ一致を目視確認済み。
 
 ## 追加・公開の運用
+
+rc.6のHIT／UI改善：`src/impact.js`の280ms演出曲線、`game.js`の速度増幅・通過判定・静かな再配置、ターゲットの奥行き、短い粒子とTrail、合成HIT音、カメラideal条件、Pause設定画面、対応テストは新規独自作成（分類1、MIT）。加点条件は速度に依存せず、第三者コード・録音・素材・依存の追加なし。
 
 rc.5の演出改善：`src/feedback.js`の累積報酬通知、二重リング・光線・拍動・紙吹雪・HIT文字、CSS通知、Web Audioの祝福音とFEVER編成、対応テストは新規独自作成（分類1、MIT）。成功時に体験が育つ思想は引き続き分類2。新しい第三者画像・録音・依存・コードのコピーはなく、配布ファイルhashを更新しています。
 

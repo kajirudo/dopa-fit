@@ -22,7 +22,7 @@ const fs = require('node:fs/promises'), path = require('node:path'), os = requir
   await b.locator('#update').click();await b.waitForFunction(()=>document.getElementById('update').textContent.includes('ほかのタブ'));
   assert.equal(await a.evaluate(()=>window.testApp.state),'PLAYING');assert.ok(await b.evaluate(()=>!!window.testApp.registration.waiting));result.checks.push('Update is blocked while another tab plays');
   // Browser focus may pause a, which is still intentionally a busy session.
-  await a.locator('#finish').click();await a.locator('#result-close').click();await b.locator('#update').click();await b.waitForFunction(()=>!document.getElementById('update-banner').classList.contains('hidden')===false);
+  await a.locator('#pause').click();await a.locator('#finish').click();await a.locator('#result-close').click();await b.locator('#update').click();await b.waitForFunction(()=>!document.getElementById('update-banner').classList.contains('hidden')===false);
   await b.waitForFunction(async version=>{const keys=await caches.keys();return keys.length===1&&keys[0]==='dopa-fit-'+version+'-update-test';},old);
   const keys=await b.evaluate(()=>caches.keys());assert.deepEqual(keys,['dopa-fit-'+old+'-update-test']);result.checks.push('Idle update activates atomically and deletes the old cache');
   await b.evaluate(async()=>{window.testApp=(await import('./src/app.js')).app;});

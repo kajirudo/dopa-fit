@@ -34,7 +34,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
         catch (error) { console.log(JSON.stringify(await page.evaluate(() => ({state:window.testApp.state,audio:window.testApp.audio.ctx?.state,time:window.testApp.audio.ctx?.currentTime,ready:window.testApp.audio.ready,message:document.getElementById('stage-message').textContent}))));console.log(JSON.stringify(errors));throw error; }
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
         checks.push('Gesture confirmation, advancing audio clock, 390px controls');
-        await page.locator('#finish').click(); await page.locator('#result-close').click();
+        await page.locator('#pause').click();await page.locator('#finish').click(); await page.locator('#result-close').click();
         // Inject only the two Safari failure signals: unresolved resume +
         // suspended state. Actual rendering and controls remain real browser code.
         await page.evaluate(() => {
@@ -49,6 +49,9 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
         });
         await page.locator('#demo').click(); await page.waitForFunction(() => window.testApp.state === 'PLAYING');
         assert.equal(await page.evaluate(() => window.testApp.audio.ready), false);
+        await page.waitForFunction(()=>!document.getElementById('sound-alert').classList.contains('hidden'));
+        await page.locator('#sound-alert').click();
+        assert.equal(await page.evaluate(()=>window.testApp.state),'PAUSED');
         assert.equal(await page.locator('#audio-retry').innerText(), '音を有効にする');
         assert.equal(await page.locator('#audio-retry').isEnabled(), true);
         checks.push('Blocked audio does not hang startup; recovery is visible');
@@ -57,8 +60,11 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
         assert.equal(await page.evaluate(() => window.testApp.audio.ctx !== window.oldAudio), true);
         assert.ok(await page.evaluate(() => window.testApp.game.energy.energy) >= before.energy);
         assert.ok(await page.evaluate(() => window.testApp.seconds) >= before.seconds);
+        assert.equal(await page.evaluate(() => window.testApp.music.timer),null);
+        await page.locator('#settings-close').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING'&&window.testApp.audio.ready);
         assert.equal(await page.evaluate(() => window.testApp.music.timer !== null), true);
         checks.push('Recovery replaces blocked context and resumes music without lost progress');
+        await page.locator('#pause').click();
         await page.evaluate(() => { window.testApp.audio.setVolume(0); document.getElementById('volume').value=0; });
         await page.locator('#audio-retry').click(); await page.waitForFunction(() => window.testApp.audio.ready && !window.testApp.audio.pending);
         assert.equal(await page.locator('#volume').inputValue(), '55');
@@ -66,12 +72,19 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
         await page.locator('#mute').click(); await page.waitForFunction(() => window.testApp.audio.ready && !window.testApp.audio.pending);
         assert.equal(await page.evaluate(() => window.testApp.audio.muted), false);
         checks.push('Zero volume recovery and unmute are explicit audio gestures');
+        await page.locator('#settings-close').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING'&&window.testApp.audio.ready);
         await page.evaluate(() => { const ctx=window.testApp.audio.ctx; Object.defineProperty(ctx,'state',{get:()=> 'interrupted',configurable:true});ctx.onstatechange(); });
         assert.equal(await page.evaluate(() => window.testApp.state), 'PAUSED');
         await page.locator('#resume').click(); await page.waitForFunction(() => window.testApp.state === 'PLAYING' && window.testApp.audio.ready);
         assert.ok(await page.evaluate(() => window.testApp.game.energy.energy) >= before.energy);
         checks.push('Audio interruption pauses safely; resume creates a fresh context');
-        await page.locator('#finish').click();
+        await page.locator('#pause').click();await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#settings').isVisible(),false);
+        assert.equal(await page.evaluate(()=>window.testApp.state),'PAUSED');
+        assert.equal(await page.evaluate(()=>window.testApp.music.timer),null);
+        await page.locator('#resume').click();await page.waitForFunction(()=>window.testApp.state==='PLAYING'&&window.testApp.audio.ready);
+        checks.push('Dismissed settings stays paused until an explicit resume gesture');
+        await page.locator('#pause').click();await page.locator('#finish').click();
         assert.equal(await page.evaluate(() => window.testApp.audio.voices.size), 0);
         assert.deepEqual(errors, []);
         results.push({engine,version:browser.version(),checks,status:'passed'}); console.log(JSON.stringify(results.at(-1)));

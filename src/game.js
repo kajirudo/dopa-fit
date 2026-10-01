@@ -3,11 +3,18 @@ import { clamp, distance } from './coordinates.js';
 export const LAYERS = ['Kick', 'Hi-hat', 'Snare', 'Bass', 'Synth', 'Melody'];
 export const THRESHOLDS = [0, 10, 25, 45, 70, 100];
 export const BAR_SECONDS = 60 / 112 * 4;
+export function segmentDistance(point, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, length = dx * dx + dy * dy;
+  const t = length ? clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / length, 0, 1) : 0;
+  return distance(point, { x: a.x + t * dx, y: a.y + t * dy });
+}
+export const hitIntensity = speed => 1 + clamp(((Number.isFinite(speed) ? speed : 0) - .8) / 5, 0, 1) * .35;
 export class TargetManager {
   constructor(calibration, top = false) {
     this.calibration = calibration;
     this.dynamic = top;
     this.targets = [];
+    this.previous = {};
     this.place(top);
   }
   place(top = false) {
@@ -15,34 +22,51 @@ export class TargetManager {
     const radius = clamp(.28 * s, 24, 44);
     this.targets = [-1, 1].map((side, index) => ({ id: index, x: c.x + side * .9 * s, y: c.y + .25 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
     if (top && c.y - .8 * s - radius > rect.y + 8) this.targets.push({ id: 2, x: c.x, y: c.y - .8 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity });
-    for (const target of this.targets) { target.home = {x:target.x,y:target.y}; target.visits = 0; }
+    for (const target of this.targets) { target.home = {x:target.x,y:target.y}; target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
   }
-  resetArms() { for (const t of this.targets) t.arms = {}; }
-  process(pose, now) {
-    const hits = [];
+  resetArms() { for (const t of this.targets) t.arms = {}; this.previous = {}; }
+  advance(now) {
     for (const target of this.targets) {
-      if (target.relocateAt && now >= target.relocateAt) {
+      if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 4600 + target.id * 220 : Infinity; }
+      if ((target.relocateAt && now >= target.relocateAt) || now >= target.expiresAt) {
         const {rect,shoulder:s} = this.calibration, offsets = [[0,-.12],[0,.12],[.08,0],[0,0]], offset = offsets[target.visits++ % offsets.length];
         target.x = clamp(target.home.x + offset[0]*s, rect.x+target.radius+8, rect.x+rect.width-target.radius-8);
         target.y = clamp(target.home.y + offset[1]*s, rect.y+target.radius+8, rect.y+rect.height-target.radius-8);
-        target.arms = {}; target.relocateAt = 0;
+        target.arms = {}; target.relocateAt = 0; target.bornAt = now; target.expiresAt = now + 4600 + target.id * 220;
       }
+    }
+  }
+  process(pose, now) {
+    this.advance(now);
+    const hits = [];
+    for (const target of this.targets) {
       for (const name of ['left_wrist', 'right_wrist']) {
         const p = pose.points[name];
-        if (!p?.valid) { target.arms[name] = false; continue; }
+        if (!p?.valid) { target.arms[name] = false; delete this.previous[name]; continue; }
         const d = distance(p, target);
+        const previous = this.previous[name], dt = previous ? now - previous.at : 0;
+        const crossed = previous && dt > 0 && dt <= 200 && previous.at >= target.bornAt && distance(previous, target) > target.radius && segmentDistance(target, previous, p) <= target.radius;
         if (d > target.radius + 8) target.arms[name] = true;
-        if (d <= target.radius && target.arms[name]) {
+        if ((d <= target.radius || crossed) && target.arms[name]) {
           target.arms[name] = false;
           if (now < target.readyAt) continue;
           target.readyAt = now + 350;
           if (this.dynamic) target.relocateAt = target.readyAt;
           target.hitAt = now;
           target.arms = {};
-          hits.push({ targetId: target.id, wristId: name, x: target.x, y: target.y, at: now });
+          const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
+          const relative = l?.valid && r?.valid ? { x: p.x - (l.x + r.x) / 2, y: p.y - (l.y + r.y) / 2 } : null;
+          const speed = dt >= 16 && dt <= 200 && previous?.relative && relative ? distance(relative, previous.relative) / this.calibration.shoulder * 1000 / dt : 0;
+          target.intensity = hitIntensity(speed);
+          hits.push({ targetId: target.id, wristId: name, x: target.x, y: target.y, at: now, intensity: target.intensity });
           break;
         }
       }
+    }
+    for (const name of ['left_wrist', 'right_wrist']) {
+      const p = pose.points[name], l = pose.points.left_shoulder, r = pose.points.right_shoulder;
+      if (p?.valid) this.previous[name] = { x: p.x, y: p.y, at: now, relative: l?.valid && r?.valid ? { x: p.x - (l.x + r.x) / 2, y: p.y - (l.y + r.y) / 2 } : null };
+      else delete this.previous[name];
     }
     return hits;
   }

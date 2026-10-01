@@ -33,7 +33,9 @@ export class AppController {
     $('start').onclick = () => this.start(false);
     $('demo').onclick = () => this.start(true);
     $('finish').onclick = () => this.finish();
-    $('pause').onclick = () => this.pause();
+    $('pause').onclick = () => this.openSettings();
+    $('sound-alert').onclick = () => this.openSettings();
+    $('settings-close').onclick = () => { $('settings').close(); this.resume(); };
     $('resume').onclick = () => this.resume();
     $('result-close').onclick = () => $('result').close();
     $('history-open').onclick = () => { this.renderHistory(); $('history').showModal(); };
@@ -60,11 +62,12 @@ export class AppController {
     $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
     $('audio-status').textContent = this.audio.pending ? '確認音を準備中…' : quiet ? '音はOFFです' : this.audio.ready ? '音が聞こえないときは →' : 'タップして音を有効に →';
     $('audio-retry').textContent = this.audio.ready && !quiet ? '音を試す' : '音を有効にする';
-    $('audio-retry').disabled = this.audio.pending || ['IDLE', 'FINISHED', 'PAUSED', 'ERROR'].includes(this.state);
+    $('audio-retry').disabled = this.audio.pending || ['IDLE', 'FINISHED', 'ERROR'].includes(this.state) || (this.state === 'PAUSED' && !$('settings').open);
+    $('sound-alert').classList.toggle('hidden', this.state !== 'PLAYING' || this.audio.ready || quiet || this.audio.pending);
     $('audio-check').classList.toggle('needs-audio', !this.audio.ready && !quiet && !this.audio.pending);
   }
   async retryAudio() {
-    if (this.audio.pending || !['STARTING', 'CALIBRATING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return;
+    if (this.audio.pending || (!['STARTING', 'CALIBRATING', 'COUNTDOWN', 'PLAYING'].includes(this.state) && !(this.state === 'PAUSED' && $('settings').open))) return;
     const generation = this.generation;
     $('audio-help').classList.remove('hidden');
     this.music.stop(); this.audio.setMuted(false);
@@ -126,6 +129,7 @@ export class AppController {
       else { this.state = 'PLAYING'; $('stage-scrim').classList.add('hidden'); if (this.phase >= 2) this.music.start(this.seconds); }
     }
     if (this.state === 'PLAYING') {
+      this.game.targets.advance(now);
       this.seconds += dt; this.game.energy.tick(this.seconds, dt, this.phase >= 3);
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
@@ -171,7 +175,7 @@ export class AppController {
     const hasAccent = events.some(event => event.type !== 'move');
     for (const event of events) {
       if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
-      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER');
+      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER', event.intensity || 1);
       this.renderer.reward(event);
     }
   }
@@ -190,6 +194,8 @@ export class AppController {
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
     $('cycle').textContent = state?.cycle === 'FEVER' ? `FEVER ✦ ${Math.ceil(Math.max(0, 8 * BAR_SECONDS - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? 'ひと息 · KEEP YOUR GROOVE' : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `FEVERまであと ${Math.max(0, 100 - (state.energy - state.lastFeverEnergy))}` : 'BUILD THE BEAT';
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
+    $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && state.energy - state.lastFeverEnergy < 75) || !state);
+    $('current-sound').textContent = this.phase === 1 ? 'TOUCH → SOUND' : `${LAYERS[state?.layer || 0]} ♪`;
     $('play').classList.toggle('near-fever', this.phase >= 3 && state?.cycle !== 'FEVER' && state?.energy - state?.lastFeverEnergy >= 75);
     $('rally').classList.toggle('hidden', this.phase < 3); $('rally-count').textContent = state?.hits || 0;
     if (now >= this.cueUntil) $('celebration').classList.add('hidden');
@@ -206,6 +212,12 @@ export class AppController {
       if (!this.demo && this.latencies.length > 30 && (this.metrics.inferenceP95ms > 90 || fps < 30)) { this.renderer.particleBudget = 80; if (this.renderer.dpr !== 1) { this.renderer.dpr = 1; this.renderer.resize(); } this.inferenceInterval = 67; }
     }
   }
+  openSettings() {
+    if (['IDLE', 'FINISHED'].includes(this.state)) return;
+    this.pause();
+    if (!$('settings').open) $('settings').showModal();
+    this.updateAudio();
+  }
   pause() {
     if (['IDLE', 'FINISHED', 'PAUSED'].includes(this.state)) return;
     this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.message('ひと息つこう\nENERGYはそのまま', true);
@@ -219,6 +231,7 @@ export class AppController {
   }
   async finish() {
     if (['IDLE', 'FINISHED'].includes(this.state)) return;
+    $('settings').close();
     const hadGame = !!this.game, energy = this.game?.energy; this.generation++; this.state = 'FINISHED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); await this.audio.close(); await this.pose.dispose();
     $('play').classList.add('hidden'); $('landing').classList.remove('hidden'); this.mapped = null; this.renderer.particles.parts = [];
     if (hadGame) {
