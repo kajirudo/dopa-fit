@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { clamp, distance } from './coordinates.js';
 import { HAND_GRACE_MS } from './hands.js';
+import { feverStage, REST_BPM } from './fever.js';
 export const LAYERS = ['Kick', 'Hi-hat', 'Snare', 'Bass', 'Synth', 'Melody'];
 export const THRESHOLDS = [0, 10, 25, 45, 70, 100];
 export const BAR_SECONDS = 60 / 112 * 4;
@@ -8,18 +9,26 @@ export const BEAT_MS = 60 / 112 * 1000;
 export const targetRadius = shoulder => clamp(.32 * shoulder, 34, 60);
 export function targetLayout(calibration) {
   const { shoulder, rect } = calibration;
-  const radius = Math.min(targetRadius(shoulder), Math.max(20,Math.min(rect.width,rect.height)*.13));
+  const top=Math.max(rect.y,calibration.ui?.top || rect.y), bottom=rect.y+rect.height-(calibration.ui?.bottom || 0);
+  const bounds={...rect,y:top,height:Math.max(80,bottom-top)};
+  const radius = Math.min(targetRadius(shoulder), Math.max(20,Math.min(rect.width,bounds.height)*.13));
   const span = Math.min(shoulder, Math.max(24,(rect.width-2*radius-32)/1.8), Math.max(24,(rect.height-2*radius-32)/2.4));
-  return { radius, span };
+  return { radius, span, bounds };
 }
 // Four heights on each side. These are destinations, not eight simultaneous targets.
 export function targetPositions(calibration, reach = 'wide') {
-  const { center: c, rect } = calibration, { radius, span: s } = targetLayout(calibration);
+  const { center: c } = calibration, { radius, span: s, bounds:rect } = targetLayout(calibration);
   const scale = reach === 'small' ? .68 : 1, positions = [];
+  // Vertical reach uses real shoulder size, independent of the compressed horizontal span.
+  const upper = calibration.bodyMode==='upper';
+  const low=Math.max(rect.y+radius+8,c.y-calibration.shoulder*1.1*scale,rect.y+rect.height*.14);
+  const high=Math.min(rect.y+rect.height-radius-8,c.y+calibration.shoulder*.7*scale,rect.y+rect.height*.76);
+  const yMin=low<=high?low:Math.max(rect.y+radius+8,Math.min(rect.y+rect.height-radius-8,c.y-calibration.shoulder*.5*scale));
+  const yMax=low<=high?high:Math.max(yMin,Math.min(rect.y+rect.height-radius-8,c.y+calibration.shoulder*.5*scale));
   for (const side of [-1, 1]) for (const [height, offset] of [-.75, -.1, .55, 1.15].entries()) {
     const point = { lane: side < 0 ? 0 : 1, height, radius,
       x: clamp(c.x + side * [.75, .9, .85, .65][height] * s * scale, rect.x + radius + 8, rect.x + rect.width - radius - 8),
-      y: clamp(c.y + offset * s * scale, rect.y + radius + 8, rect.y + rect.height - radius - 8) };
+      y: upper ? yMin+(yMax-yMin)*height/3 : clamp(c.y + offset * s * scale, rect.y + radius + 8, rect.y + rect.height - radius - 8) };
     if (!positions.some(p => p.lane === point.lane && distance(p, point) < radius * 1.25)) positions.push(point);
   }
   return positions;
@@ -41,7 +50,7 @@ export class TargetManager {
     this.place();
   }
   place() {
-    const { center: c, rect } = this.calibration, { radius, span: s } = targetLayout(this.calibration);
+    const { center: c } = this.calibration, { radius, span: s, bounds:rect } = targetLayout(this.calibration);
     this.targets = [-1, 1].map((side, index) => ({ id: index, x: clamp(c.x + side * .9 * s,rect.x+radius+8,rect.x+rect.width-radius-8), y: clamp(c.y + .25 * s,rect.y+radius+8,rect.y+rect.height-radius-8), radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
     if (this.dynamic) for (const target of this.targets) Object.assign(target, this.destination(target.id, 0));
     for (const target of this.targets) { target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
@@ -58,19 +67,21 @@ export class TargetManager {
   planNext(target, now) {
     target.waiting = true; target.arms = {};
     const earliest = now + 350;
-    target.relocateAt = this.beatOrigin + Math.ceil((earliest - this.beatOrigin) / BEAT_MS) * BEAT_MS;
+    target.relocateAt = this.beatOrigin + Math.ceil((earliest - this.beatOrigin) / this.beatMs) * this.beatMs;
     target.next = { ...this.destination(target.id, ++target.visits), bornAt: now, arrivesAt: target.relocateAt };
     this.leadId = 1 - target.id;
   }
-  advance(now, seconds, cycle = this.cycle) {
+  advance(now, seconds, cycle = this.cycle, beatMs = this.beatMs || BEAT_MS) {
     this.cycle = cycle; this.beatOrigin ??= now;
+    const changed=this.beatMs && Math.abs(this.beatMs-beatMs)>.01;this.beatMs=beatMs;
     if (Number.isFinite(seconds)) this.beatOrigin = now - seconds * 1000;
     for (const target of this.targets) {
-      if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 8 * BEAT_MS : Infinity; }
+      if(changed && target.waiting) { const earliest=Math.max(now,(target.hitAt||0)+350);target.relocateAt=this.beatOrigin+Math.ceil((earliest-this.beatOrigin)/this.beatMs)*this.beatMs;target.next.arrivesAt=target.relocateAt; }
+      if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 8 * this.beatMs : Infinity; }
       if (target.waiting && now >= target.relocateAt) {
         Object.assign(target, target.next); target.next = null; target.waiting = false;
         target.arms = {}; target.relocateAt = 0; target.bornAt = now; target.hitAt = -Infinity;
-        target.expiresAt = now + (this.cycle === 'REST' ? 12 : 8) * BEAT_MS;
+        target.expiresAt = now + (this.cycle === 'REST' ? 12 : 8) * this.beatMs;
       }
       if (this.dynamic && !target.waiting && now >= target.expiresAt) this.planNext(target, now);
     }
@@ -123,12 +134,14 @@ export class TargetManager {
 export class EnergySystem {
   constructor() { this.energy = 0; this.hits = 0; this.moves = 0; this.flow = 0; this.heat = 0; this.cycle = 'BUILD'; this.lastFeverEnergy = 0; this.phaseAt = 0; this.feverLevel = 0; }
   get nextFeverLevel() { return Math.min(5,this.feverLevel+1); }
+  get feverDuration() { return 8*240/feverStage(this.feverLevel).bpm; }
+  get restDuration() { return 4*240/REST_BPM; }
   reward(kind) { this.energy += kind === 'hit' || kind === 'exercise' ? 5 : 1; if (kind === 'hit') this.hits++; else this.moves++; this.heat = Math.min(1, this.heat + .12); }
   get layer() { return THRESHOLDS.reduce((level, value, i) => this.energy >= value ? i : level, 0); }
   tick(seconds, dt, canStartFever = true) {
     this.heat = Math.max(0, this.heat - dt * .045);
-    if (this.cycle === 'FEVER' && seconds - this.phaseAt >= 8 * BAR_SECONDS - 1e-6) { this.cycle = 'REST'; this.phaseAt = seconds; }
-    else if (this.cycle === 'REST' && seconds - this.phaseAt >= 4 * BAR_SECONDS - 1e-6) this.cycle = 'BUILD';
+    if (this.cycle === 'FEVER' && seconds - this.phaseAt >= this.feverDuration - 1e-6) { this.cycle = 'REST'; this.phaseAt = seconds; }
+    else if (this.cycle === 'REST' && seconds - this.phaseAt >= this.restDuration - 1e-6) this.cycle = 'BUILD';
     if (canStartFever && this.cycle === 'BUILD' && this.energy - this.lastFeverEnergy >= 100) { this.cycle = 'FEVER'; this.phaseAt = seconds; this.lastFeverEnergy += 100; this.feverLevel = this.nextFeverLevel; }
   }
 }

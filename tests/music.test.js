@@ -17,8 +17,8 @@ test('visual rhythm follows scheduled audio time after resume and scheduler reco
 test('all melodic and bass voices use finite C major pentatonic pitches', () => {
  const played=[],engine=new MusicEngine({play:(kind,time,note)=>played.push({kind,time,note})},()=>({}));engine.layer=5;engine.cycle='FEVER';
  for(let step=0;step<128;step++)engine.schedule(step,step*60/112/4);
- for(const voice of played.filter(v=>['bass','synth','melody'].includes(v.kind))){assert.ok(Number.isFinite(voice.note));assert.ok([0,2,4,7,9].includes(voice.note%12),`${voice.kind}: ${voice.note}`);}
- assert.ok(played.some(v=>v.kind==='bass')&&played.some(v=>v.kind==='melody'));
+ for(const voice of played.filter(v=>['bass','synth','melody','pulse-bass','acid-bass','pluck','rave'].includes(v.kind))){assert.ok(Number.isFinite(voice.note));assert.ok([0,2,4,7,9].includes(voice.note%12),`${voice.kind}: ${voice.note}`);}
+ assert.ok(played.some(v=>v.kind==='pulse-bass')&&played.some(v=>v.kind==='pluck'));
 });
 test('new instrument layers are captured at bar boundaries without changing reserved beats', () => {
  let state={layer:0,cycle:'BUILD'};const audio={ctx:{state:'running',currentTime:0},play(){}},engine=new MusicEngine(audio,()=>state);engine.nextTime=.06;
@@ -31,7 +31,7 @@ test('FEVER adds melodic motion and bass while the calm section keeps kick and u
  const played=[],engine=new MusicEngine({play:(kind,time,note)=>played.push({kind,time,note})},()=>({}));engine.layer=5;
  const bar=cycle=>{engine.cycle=cycle;played.length=0;for(let s=0;s<16;s++)engine.schedule(s,s*.134);return [...played];};
  const normal=bar('BUILD'),fever=bar('FEVER'),rest=bar('REST');
- assert.equal(fever.filter(p=>p.kind==='melody').length,16);assert.equal(normal.filter(p=>p.kind==='melody').length,4);
- assert.equal(fever.filter(p=>p.kind==='bass').length,8);assert.equal(rest.filter(p=>p.kind==='kick').length,4);
+ assert.equal(fever.filter(p=>p.kind==='pluck').length,8);assert.equal(normal.filter(p=>p.kind==='melody').length,4);
+ assert.equal(fever.filter(p=>p.kind==='pulse-bass').length,6);assert.equal(rest.filter(p=>p.kind==='kick').length,4);
  assert.equal(rest.some(p=>p.kind==='melody'||p.kind==='synth'),false);assert.equal(engine.layer,5);
 });

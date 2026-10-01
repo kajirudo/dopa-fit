@@ -49,9 +49,9 @@ test('fever restarts from fresh cumulative energy without taking rewards away', 
   const energy = new EnergySystem(); for (let i = 0; i < 20; i++) energy.reward('hit');
   energy.tick(0, 0); assert.equal(energy.cycle, 'FEVER'); assert.equal(energy.layer, 5);
   for (let i = 0; i < 20; i++) energy.reward('hit');
-  energy.tick(8 * BAR_SECONDS, 0); assert.equal(energy.cycle, 'REST'); assert.equal(energy.energy, 200);
-  energy.tick(12 * BAR_SECONDS, 0); assert.equal(energy.cycle, 'FEVER'); assert.equal(energy.energy, 200);
-  energy.tick(20 * BAR_SECONDS, 0); energy.tick(24 * BAR_SECONDS, 0); assert.equal(energy.cycle, 'BUILD'); assert.equal(energy.energy, 200);
+  assert.equal(energy.feverDuration,16);energy.tick(16, 0); assert.equal(energy.cycle, 'REST'); assert.equal(energy.energy, 200);
+  energy.tick(25.6, 0); assert.equal(energy.cycle, 'FEVER'); assert.equal(energy.energy, 200);
+  energy.tick(40.6, 0); energy.tick(50.2, 0); assert.equal(energy.cycle, 'BUILD'); assert.equal(energy.energy, 200);
 });
 test('movement has a dead zone, global rate limit, and no reward on reacquisition', () => {
   const tracker = new MovementTracker(); assert.equal(tracker.process(pose(100, 100), calibration, 0), false);

@@ -4,6 +4,7 @@ import { impactAt } from './impact.js';
 import { HAND_GRACE_MS } from './hands.js';
 import { feverStage } from './fever.js';
 import { targetLayout } from './game.js';
+import { overlapsTarget } from './layout.js';
 // An independent rounded tile, entirely inside its circular contact area.
 function tilePath(ctx, x, y, radius) {
   const r = radius * .76, corner = r * .32;
@@ -130,6 +131,10 @@ export class Renderer {
       if (reward.type === 'move' && !this.particles.reduced) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 12 + age * 22, 0, Math.PI * 2); ctx.strokeStyle = reward.color; ctx.lineWidth = 2; ctx.stroke(); }
     }
     ctx.globalAlpha = 1;
-    if (game && game.phase >= 3) { const img = this.characters[feedback?.cycle === 'FEVER' ? 'fever' : now - (game.lastFeedbackAt ?? -Infinity) < 900 ? 'cheer' : 'idle']; if (img.complete && img.naturalWidth) { const size = Math.min(88, this.width * .18); ctx.drawImage(img, this.width - size - 8, this.height - size - 8, size, size); } }
+    const box=this.mascot;
+    const announcing=this.celebration && now<this.celebration.at+this.celebration.duration;
+    const covered=box && game && [...game.targets.active,...(game.targets.preview?[game.targets.preview]:[])].some(t=>overlapsTarget(box,t));
+    this.mascotVisible=!!(box && game && game.phase>=3 && !announcing && !covered);
+    if(this.mascotVisible) { const img=this.characters[fever?'fever':now-(game.lastFeedbackAt??-Infinity)<900?'cheer':'idle'];if(img.complete&&img.naturalWidth)ctx.drawImage(img,box.x,box.y,box.width,box.height); }
   }
 }

@@ -4,13 +4,14 @@ import { PoseDetector } from './pose.js';
 import { mapPose, distance } from './coordinates.js';
 import { HandTracker } from './hands.js';
 import { CalibrationManager } from './calibration.js';
-import { GameEngine, LAYERS, BAR_SECONDS } from './game.js';
+import { GameEngine, LAYERS } from './game.js';
 import { AudioManager } from './audio.js';
 import { MusicEngine } from './music.js';
 import { Renderer } from './renderer.js';
 import { Store } from './storage.js';
 import { FeedbackDirector } from './feedback.js';
-import { FEVER_STAGES, feverStage } from './fever.js';
+import { FEVER_STAGES, feverStage, BASE_BPM, REST_BPM } from './fever.js';
+import { mascotBox } from './layout.js';
 const $ = id => document.getElementById(id);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const courseCues = ['左右へ、ゆっくりリーチ', '両手を上げてみよう', '左右へステップ', 'ゆっくり上下に動こう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
@@ -133,6 +134,9 @@ export class AppController {
     }
   }
   acceptCalibration(calibration) {
+    const stage=$('stage').getBoundingClientRect(), hud=document.querySelector('.play-hud').getBoundingClientRect();
+    this.renderer.mascot=mascotBox(this.renderer.width,this.renderer.height,hud.bottom-stage.top);
+    calibration={...calibration,ui:{top:this.renderer.mascot?this.renderer.mascot.y+this.renderer.mascot.height+12:hud.bottom-stage.top+12,bottom:24}};
     const previous = this.game?.energy;
     this.game = new GameEngine(calibration, this.phase, $('reach').value); if (previous) this.game.energy = previous;
     this.state = 'COUNTDOWN'; this.countdownAt = performance.now();
@@ -148,7 +152,8 @@ export class AppController {
     }
     if (this.state === 'PLAYING') {
       this.seconds += dt; this.game.energy.tick(this.seconds, dt, this.phase >= 3);
-      this.game.targets.advance(now, this.music.clockSeconds ?? this.seconds, this.game.energy.cycle);
+      const clock=this.music.clock, bpm=this.game.energy.cycle==='FEVER'?feverStage(this.game.energy.feverLevel).bpm:this.game.energy.cycle==='REST'?REST_BPM:BASE_BPM;
+      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.energy.cycle, clock?.beatMs ?? 60000/bpm);
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
     }
@@ -214,7 +219,8 @@ export class AppController {
     $('energy').textContent = state?.energy || 0; $('timer').textContent = formatTime(this.seconds);
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
     const stage=feverStage(state?.feverLevel), next=state?.nextFeverLevel || 1;
-    $('cycle').textContent = state?.cycle === 'FEVER' ? `FEVER ${stage.level}/5 · ${stage.name} ✦ ${Math.ceil(Math.max(0, 8 * BAR_SECONDS - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ひと息` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `${feverStage(next).name}まであと ${Math.max(0,100-(state.energy-state.lastFeverEnergy))}` : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · 次は${feverStage(next).name}` : 'BUILD THE BEAT';
+    const bpm=this.music.clock?.bpm || (state?.cycle==='FEVER'?stage.bpm:state?.cycle==='REST'?REST_BPM:BASE_BPM);
+    $('cycle').textContent = state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ひと息` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `${feverStage(next).name}まであと ${Math.max(0,100-(state.energy-state.lastFeverEnergy))}` : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · 次は${feverStage(next).name}` : 'BUILD THE BEAT';
     $('play').dataset.feverLevel=String(state?.feverLevel || 0);
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
     $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && !state.feverLevel && state.energy - state.lastFeverEnergy < 75) || !state);

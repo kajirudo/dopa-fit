@@ -89,17 +89,19 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
     assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
     for(let level=2;level<=5;level++) {
-      await page.evaluate(async()=>{const a=window.testApp,{BAR_SECONDS}=await import('./src/game.js'),e=a.game.energy;
+      await page.evaluate(async()=>{const a=window.testApp,e=a.game.energy;
         // Synthetic time advances test all five stages without claiming a physical session.
-        e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+8*BAR_SECONDS;e.tick(a.seconds,0);const calm=a.feedbackDirector.update(e);if(calm)a.celebrate(calm,performance.now());
-        a.seconds=e.phaseAt+4*BAR_SECONDS;e.tick(a.seconds,0);const cue=a.feedbackDirector.update(e);if(cue)a.celebrate(cue,performance.now());a.updateUI(performance.now());});
+        e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+e.feverDuration;e.tick(a.seconds,0);const calm=a.feedbackDirector.update(e);if(calm)a.celebrate(calm,performance.now());
+        a.seconds=e.phaseAt+e.restDuration;e.tick(a.seconds,0);const cue=a.feedbackDirector.update(e);if(cue)a.celebrate(cue,performance.now());a.updateUI(performance.now());});
       await page.waitForFunction(level=>window.testApp.game.energy.feverLevel===level&&window.testApp.music.feverLevel===level,level,{timeout:4000});
+      await page.waitForFunction(bpm=>window.testApp.music.clock?.bpm===bpm,[120,128,138,148,160][level-1]);
+      assert.equal(await page.evaluate(()=>window.testApp.game.targets.beatMs),60000/[120,128,138,148,160][level-1]);
       assert.ok((await page.locator('#cycle').textContent()).includes(`${level}/5`));
       assert.equal(await page.locator('#fever-levels .on').count(),level);
       assert.ok(await page.evaluate(()=>window.testApp.renderer.particles.parts.length<=240&&window.testApp.audio.voices.size<=24&&window.testApp.audio.nodeCount<=160));
       if(level===3||level===5)await page.screenshot({path:path.join(root,`test-results/fever-${level}.png`)});
     }
-    assert.ok((await page.locator('#cycle').textContent()).includes('SUPERNOVA'));check('Five named FEVER stages update music / color / bounded effects and preserve unlocked progress');
+    assert.ok((await page.locator('#cycle').textContent()).includes('SUPERNOVA'));assert.ok((await page.locator('#cycle').textContent()).includes('160 BPM'));check('Five named FEVER stages update actual tempo / target rhythm / color / bounded effects and preserve progress');
     await page.locator('#pause').click();
     await page.locator('#reach').selectOption('small');
     await page.screenshot({path:path.join(root,'test-results/settings.png')});
@@ -150,13 +152,17 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
       return{added:a.game.energy.hits-initial,held:a.mapped.hands.left_wrist?.held,radius:hand.radius,visible:!!a.renderer.markers.left_wrist};});
     assert.equal(assist.added,1);assert.equal(assist.held,true);assert.equal(assist.visible,true);assert.ok(assist.radius>=20);check('Low-confidence near-edge HIT and brief display-only hand retention through AppController');
     const near=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera');a.beginCalibration();
-      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.4,score:1},right_shoulder:{x:.9,y:.4,score:1},left_wrist:{x:.47,y:.65,score:1},right_wrist:{x:.53,y:.65,score:1}}});await new Promise(r=>setTimeout(r,50));}
+      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.78,score:1},right_shoulder:{x:.9,y:.78,score:1},left_wrist:{x:.47,y:.65,score:1},right_wrist:{x:.53,y:.65,score:1}}});await new Promise(r=>setTimeout(r,50));}
       if(a.state!=='COUNTDOWN')throw Error('Close upper-body calibration failed');const {viewport}=await import('./src/coordinates.js'),c=a.game.calibration,s=viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover');
       a.state='PLAYING';document.getElementById('stage-scrim').classList.add('hidden');const t=a.game.targets.targets[0],norm=(x,y)=>({x:1-(x-s.x)/s.width,y:(y-s.y)/s.height,score:1});
-      const send=(x,y)=>{const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.4,score:1},right_shoulder:{x:.9,y:.4,score:1},left_wrist:norm(x,y)}});};
+      const send=(x,y)=>{const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.78,score:1},right_shoulder:{x:.9,y:.78,score:1},left_wrist:norm(x,y)}});};
       send(c.center.x,a.renderer.height*.85);send(t.x,t.y);a.updateUI(performance.now());a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
-      return{mode:c.bodyMode,shoulder:c.shoulder,width:a.renderer.width,hits:a.game.energy.hits,level:a.game.energy.feverLevel,inside:a.game.targets.positions.every(p=>p.x-p.radius>=0&&p.x+p.radius<=a.renderer.width&&p.y-p.radius>=0&&p.y+p.radius<=a.renderer.height)};});
+      a.renderer.celebration=null;a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
+      const box=a.renderer.mascot,visible=a.renderer.mascotVisible,active=a.game.targets.active[0],old={x:active.x,y:active.y};
+      active.x=box.x+box.width/2;active.y=box.y+box.height/2;a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);const hiddenOnOverlap=!a.renderer.mascotVisible;Object.assign(active,old);a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
+      return{mode:c.bodyMode,shoulder:c.shoulder,width:a.renderer.width,hits:a.game.energy.hits,level:a.game.energy.feverLevel,upper:a.game.targets.positions.some(p=>p.y<a.renderer.height*.4),central:a.game.targets.positions.some(p=>p.y>=a.renderer.height*.4&&p.y<a.renderer.height*.6),mascotTop:box.y,visible,hiddenOnOverlap,inside:a.game.targets.positions.every(p=>p.x-p.radius>=0&&p.x+p.radius<=a.renderer.width&&p.y-p.radius>=c.ui.top&&p.y+p.radius<=a.renderer.height)};});
     assert.equal(near.mode,'upper');assert.ok(near.shoulder>near.width);assert.ok(near.hits>=1&&near.inside);results.closeUpperBody=near;
+    assert.ok(near.upper&&near.central&&near.visible&&near.hiddenOnOverlap&&near.mascotTop<844*.2);check('Low shoulders still yield upper / central targets; upper-corner mascot hides on overlap');
     await page.screenshot({path:path.join(root,'test-results/close-upper.png')});check('Synthetic close upper body wider than portrait crop → calibration → reachable target → HIT');
     await page.locator('#pause').click();assert.equal(await page.evaluate(()=>window.testApp.camera.stream),null);
     const preserved=await page.evaluate(()=>({energy:window.testApp.game.energy.energy,level:window.testApp.game.energy.feverLevel}));

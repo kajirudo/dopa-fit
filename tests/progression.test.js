@@ -15,19 +15,19 @@ test('five successive fevers keep progress, bank excess ENERGY, respect calm and
     energy.tick(time,0);assert.equal(energy.cycle,'FEVER');assert.equal(energy.feverLevel,Math.min(5,n));
     assert.equal(energy.lastFeverEnergy,n*100);const cue=director.update(energy);assert.equal(cue.kind,'fever');assert.equal(cue.level,Math.min(5,n));
     assert.ok(cue.title.includes(FEVER_STAGES[Math.min(4,n-1)].name));assert.equal(director.update(energy),null);
-    time+=8*BAR_SECONDS;energy.tick(time,0);assert.equal(energy.cycle,'REST');director.update(energy);
-    energy.tick(time+3*BAR_SECONDS,0);assert.equal(energy.cycle,'REST');assert.equal(energy.feverLevel,Math.min(5,n));
-    time+=4*BAR_SECONDS;assert.equal(energy.energy,650);assert.equal(energy.layer,5);
+    time+=energy.feverDuration;energy.tick(time,0);assert.equal(energy.cycle,'REST');director.update(energy);
+    energy.tick(time+energy.restDuration-.01,0);assert.equal(energy.cycle,'REST');assert.equal(energy.feverLevel,Math.min(5,n));
+    time+=energy.restDuration;assert.equal(energy.energy,650);assert.equal(energy.layer,5);
   }
   energy.tick(time,0);assert.equal(energy.cycle,'BUILD');assert.equal(energy.nextFeverLevel,5);assert.equal(energy.energy,650);
 });
-test('stages have distinct musical patterns and colors, finite pentatonic notes and no accelerated tempo',()=>{
+test('stages have distinct musical patterns and colors, finite pentatonic notes and increasing tempos',()=>{
   const signatures=new Set(),played=[],engine=new MusicEngine({play:(...voice)=>played.push(voice)},()=>({}));engine.layer=5;engine.cycle='FEVER';
   assert.equal(new Set(FEVER_STAGES.map(s=>s.color)).size,5);
   for(const stage of FEVER_STAGES) {
-    engine.feverLevel=stage.level;played.length=0;for(let i=0;i<32;i++)engine.schedule(i,i*60/112/4);
-    signatures.add(JSON.stringify(played));assert.equal(played.filter(v=>v[0]==='kick').length,8);
-    for(const voice of played.filter(v=>['synth','bass','melody'].includes(v[0]))) {assert.ok(Number.isFinite(voice[2]));assert.ok([0,2,4,7,9].includes(voice[2]%12));}
+    engine.feverLevel=stage.level;played.length=0;for(let i=0;i<32;i++)engine.schedule(i,i*60/stage.bpm/4);
+    signatures.add(JSON.stringify(played));assert.ok(played.filter(v=>v[0]==='club-kick').length>=8);
+    for(const voice of played.filter(v=>['synth','bass','melody','pulse-bass','acid-bass','pluck','rave'].includes(v[0]))) {assert.ok(Number.isFinite(voice[2]));assert.ok([0,2,4,7,9].includes(voice[2]%12));}
     const audio=new AudioManager(),hits=[];audio.ctx={currentTime:0};audio.play=(...v)=>hits.push(v);
     audio.hit(0,stage.level);audio.celebrate('fever',stage.level);
     assert.ok(hits.length<12);for(const voice of hits)assert.ok([0,2,4,7,9].includes(voice[2]%12));
@@ -38,7 +38,7 @@ test('new FEVER level enters the music on a bar boundary and persists through th
   let state={layer:5,cycle:'FEVER',feverLevel:1};const audio={ctx:{currentTime:0,state:'running'},play(){}};
   const engine=new MusicEngine(audio,()=>state);engine.nextTime=.06;engine.tick();assert.equal(engine.feverLevel,1);
   state={...state,feverLevel:5};audio.ctx.currentTime=.15;engine.tick();assert.equal(engine.feverLevel,1);
-  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/112/4;engine.tick();}assert.equal(engine.feverLevel,5);
+  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/FEVER_STAGES[0].bpm/4;engine.tick();}assert.equal(engine.feverLevel,5);
   engine.cycle='REST';const voices=[];engine.audio.play=(kind)=>voices.push(kind);for(let i=0;i<16;i++)engine.schedule(i,i*.134);
   assert.ok(!voices.includes('synth')&&!voices.includes('melody'));assert.equal(engine.feverLevel,5);
 });

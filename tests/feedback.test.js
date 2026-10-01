@@ -22,10 +22,10 @@ test('anticipation, FEVER and calm resolve once without losing energy or replayi
   state.energy = 75; assert.equal(director.update(state).kind, 'near'); assert.equal(director.update(state), null);
   state.energy = 100; state.tick(0, 0);
   assert.equal(director.update(state).kind, 'fever'); assert.equal(director.update(state), null);
-  state.tick(8 * BAR_SECONDS, 0); assert.equal(director.update(state).kind, 'rest');
-  state.tick(12 * BAR_SECONDS, 0); assert.equal(director.update(state), null); assert.equal(state.energy, 100); assert.equal(state.layer, 5);
+  state.tick(16, 0); assert.equal(director.update(state).kind, 'rest');
+  state.tick(25.6, 0); assert.equal(director.update(state), null); assert.equal(state.energy, 100); assert.equal(state.layer, 5);
   state.energy = 175; assert.equal(director.update(state).kind, 'near');
-  state.energy = 200; state.tick(13 * BAR_SECONDS, 0); assert.equal(director.update(state).kind, 'fever');
+  state.energy = 200; state.tick(26, 0); assert.equal(director.update(state).kind, 'fever');
 });
 test('celebration particles honor normal, degraded and reduced-motion budgets and expire', () => {
   for (const limit of [80, 160, 240]) {

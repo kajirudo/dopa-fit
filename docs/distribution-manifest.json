@@ -1,5 +1,5 @@
 {
-  "version": "0226ae5221807818",
+  "version": "8f3590e52607bf8d",
   "files": [
     {
       "path": "LICENSE",
@@ -183,13 +183,13 @@
     },
     {
       "path": "src/app.js",
-      "bytes": 27714,
-      "sha256": "51b6dca699d6ff620e00888f7586ae4086b8ae22b6b5aa442fd46a8e3a961de2"
+      "bytes": 28440,
+      "sha256": "0a4c47c604065a38cc3c649cd9bfcc65a1b4d039e75dee6e19a02f608b2e76d1"
     },
     {
       "path": "src/audio.js",
-      "bytes": 7788,
-      "sha256": "ef47c315213cebebb21a17dd49bcfcbae7551421d6e68d5a23ab9eeece4bd506"
+      "bytes": 9175,
+      "sha256": "7a1ee1f995ec21f1f3ac8d9ea4915762d83a2e1d63f315f49273afcccaa560e6"
     },
     {
       "path": "src/calibration.js",
@@ -218,13 +218,13 @@
     },
     {
       "path": "src/fever.js",
-      "bytes": 646,
-      "sha256": "f8d8957a8ad4e3a242be0357771af2a917a1e83cd19dacf448a008bf1d3ab66f"
+      "bytes": 732,
+      "sha256": "58fab0e48101b7720ef49c40917a60de2a6a1db7be5f879f566fc44d4ec0fd9b"
     },
     {
       "path": "src/game.js",
-      "bytes": 13067,
-      "sha256": "141c13dd72bf5a3044b848d3e509b1905a2f8b8a2da89d914eea6c2df71bcd21"
+      "bytes": 14434,
+      "sha256": "6538ef7b797c6310e3322f588c951ac51ff7125db4489a781a732feab3aa6fd3"
     },
     {
       "path": "src/hands.js",
@@ -237,9 +237,14 @@
       "sha256": "acfe000278fb917be3d14e09bf9ca5171b59e1cd52272e1c1f8b53a10438e285"
     },
     {
+      "path": "src/layout.js",
+      "bytes": 463,
+      "sha256": "3bdd240c32f58492db0693b38c2e49b1de6992ca881948042a0ef4dcd6eda165"
+    },
+    {
       "path": "src/music.js",
-      "bytes": 2671,
-      "sha256": "7c2882b54fe1b5f8010614379fbeca8c79bbd0191dec53e36c506910c391ff61"
+      "bytes": 4027,
+      "sha256": "76559a360e97de4751b3a595c3ee9a04d8bd6310810964032687f7c6490e6550"
     },
     {
       "path": "src/pose.js",
@@ -248,8 +253,8 @@
     },
     {
       "path": "src/renderer.js",
-      "bytes": 12531,
-      "sha256": "ba0c9698510a2bc839e60872f6708ee394a7b9613f7a35a9b3826972840c2907"
+      "bytes": 12798,
+      "sha256": "cead7645b005c39bedc5e6153acb34b746ffd8dd1142e02d32b43fabca57ebc8"
     },
     {
       "path": "src/storage.js",

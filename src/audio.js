@@ -12,11 +12,12 @@ export class AudioManager {
     try { const session = this.getSession(); if (session) session.type = 'playback'; } catch { /* Optional API; Web Audio still works without it. */ }
     if (rebuild && this.ctx) {
       const old = this.ctx; old.onstatechange = null; this.stopVoices(); this.master.disconnect(); this.compressor.disconnect();
-      this.ctx = null; old.close().catch(() => {});
+      this.musicGain?.disconnect(); this.ctx = null; old.close().catch(() => {});
     }
     if (!this.ctx || this.ctx.state === 'closed') {
       this.ctx = this.createContext();
       this.master = this.ctx.createGain(); this.compressor = this.ctx.createDynamicsCompressor();
+      this.musicGain=this.ctx.createGain();this.musicGain.gain.value=.85;this.musicGain.connect(this.master);
       this.compressor.threshold.value = -14; this.compressor.ratio.value = 6;
       this.master.connect(this.compressor); this.compressor.connect(this.ctx.destination);
       this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
@@ -51,7 +52,8 @@ export class AudioManager {
     const voice = { nodes: [source], sources: [source] }; this.voices.add(voice);
     source.onended = () => { source.disconnect(); this.voices.delete(voice); }; source.start(); source.stop(ctx.currentTime + duration + .02);
   }
-  get nodeCount() { return this.ctx ? 2 + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
+  get nodeCount() { return this.ctx ? 3 + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
+  setMusicStyle(cycle,level,when) { if(this.musicGain && this.ctx)this.musicGain.gain.setTargetAtTime(cycle==='REST'?.55:cycle==='FEVER'?1.1+.05*feverStage(level).level:.85,Math.max(this.ctx.currentTime,when),.04); }
   setVolume(value) { this.volume = Math.max(0, Math.min(1, value)); if (this.ctx && this.ctx.state !== 'closed') this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * .65, this.ctx.currentTime, .02); }
   setMuted(value) { this.muted = value; this.setVolume(this.volume); }
   play(kind, when, note = 60, priority = false, intensity = 1) {
@@ -62,12 +64,20 @@ export class AudioManager {
     const nodes = [gain], sources = [];
     let duration = .22, peak = .11;
     const oscillator = (type, frequency) => { const source = ctx.createOscillator(); source.type = type; source.frequency.setValueAtTime(frequency, t); nodes.push(source); sources.push(source); return source; };
-    if (kind === 'kick') {
+    if (kind === 'kick' || kind === 'club-kick') {
       const source = oscillator('sine', 145); source.frequency.exponentialRampToValueAtTime(43, t + .14); source.connect(gain); duration = .3; peak = .45;
-    } else if (kind === 'hat' || kind === 'snare') {
+      if(kind==='club-kick'){const attack=oscillator('triangle',230);attack.frequency.exponentialRampToValueAtTime(55,t+.07);attack.connect(gain);duration=.24;peak=.28;}
+    } else if (['hat','snare','clap','open-hat','crash'].includes(kind)) {
       const source = ctx.createBufferSource(); source.buffer = this.noise;
-      const filter = ctx.createBiquadFilter(); filter.type = kind === 'hat' ? 'highpass' : 'bandpass'; filter.frequency.value = kind === 'hat' ? 7000 : 1800;
-      source.connect(filter); filter.connect(gain); nodes.push(source, filter); sources.push(source); duration = kind === 'hat' ? .055 : .15; peak = kind === 'hat' ? .065 : .17;
+      const cymbal=['hat','open-hat','crash'].includes(kind);
+      const filter = ctx.createBiquadFilter(); filter.type = cymbal ? 'highpass' : 'bandpass'; filter.frequency.value = cymbal ? kind==='crash'?3000:6500 : kind==='clap'?2400:1800;
+      source.connect(filter); filter.connect(gain); nodes.push(source, filter); sources.push(source); duration = kind==='hat'?.055:kind==='open-hat'?.18:kind==='crash'?.55:.15; peak = kind==='hat'?.065:kind==='crash'?.095:cymbal?.07:.17;
+    } else if(['pulse-bass','acid-bass','pluck','rave'].includes(kind)) {
+      const bass=kind.includes('bass'),source=oscillator(kind==='pulse-bass'?'square':'sawtooth',midiHz(note));
+      const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.Q.value=kind==='acid-bass'?3:1;
+      filter.frequency.setValueAtTime(bass?kind==='acid-bass'?1800:900:kind==='rave'?3600:2600,t);
+      filter.frequency.exponentialRampToValueAtTime(bass?300:900,t+(kind==='rave'?.22:.12));
+      source.connect(filter);filter.connect(gain);nodes.push(filter);duration=bass?.16:kind==='rave'?.24:.14;peak=bass?.14:kind==='rave'?.075:.12;
     } else {
       const source = oscillator(kind === 'bass' ? 'triangle' : 'sine', midiHz(note)); source.connect(gain);
       duration = kind === 'move' ? .16 : kind === 'hit' ? .24 : kind === 'bass' ? .25 : .38; peak = kind === 'move' ? .065 : kind === 'hit' ? .23 : kind === 'bass' ? .15 : .07;
@@ -78,7 +88,7 @@ export class AudioManager {
       }
     }
     gain.gain.setValueAtTime(.0001, t); gain.gain.linearRampToValueAtTime(peak, t + .006); gain.gain.exponentialRampToValueAtTime(.0001, t + duration);
-    gain.connect(this.master);
+    gain.connect(priority?this.master:(this.musicGain||this.master));
     const voice = { nodes, sources }; this.voices.add(voice);
     let ended = 0;
     for (const source of sources) { source.onended = () => { if (++ended === sources.length) { nodes.forEach(n => n.disconnect()); this.voices.delete(voice); } }; source.start(t); source.stop(t + duration + .02); }
