@@ -185,7 +185,7 @@ export class AppController {
         this.peakFeverLevel=Math.max(this.peakFeverLevel,energy.feverLevel);
       }
       const clock=this.music.clock, bpm=this.game.energy.cycle==='FEVER'?feverStage(this.game.energy.feverLevel).bpm:this.game.energy.cycle==='REST'?REST_BPM:BASE_BPM;
-      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.presentationCycle, clock?.beatMs ?? 60000/bpm);
+      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.presentationCycle, clock?.beatMs ?? 60000/bpm, energy.feverLevel);
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
     }

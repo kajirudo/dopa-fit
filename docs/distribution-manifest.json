@@ -1,5 +1,5 @@
 {
-  "version": "b7ea1ae5cf0e2510",
+  "version": "78e16c0e45a71960",
   "files": [
     {
       "path": "LICENSE",
@@ -53,8 +53,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 14707,
-      "sha256": "f1ce02c7258ddd1a2e5e52574e909d4bd235102a5b274094bcb56fad220528d2"
+      "bytes": 14951,
+      "sha256": "963837474593dedae99b411de935f2d1dcf53f699d14f36fed67a9455472de91"
     },
     {
       "path": "licenses/Apache-2.0.txt",
@@ -183,8 +183,8 @@
     },
     {
       "path": "src/app.js",
-      "bytes": 32038,
-      "sha256": "c7bab6149c83123777f3df4914a916c11a2f9187ab20d1b52efee7d6c4353bb5"
+      "bytes": 32057,
+      "sha256": "ddef8aef70aaea89a45d327a43b71651a8cab5d47871483d0edee1e931952095"
     },
     {
       "path": "src/audio.js",
@@ -218,13 +218,13 @@
     },
     {
       "path": "src/fever.js",
-      "bytes": 732,
-      "sha256": "58fab0e48101b7720ef49c40917a60de2a6a1db7be5f879f566fc44d4ec0fd9b"
+      "bytes": 872,
+      "sha256": "45efa165a07fdfdd3c3a108e4c75e6ab9d9e48f173bede7f5f1e89b8cd05bd3b"
     },
     {
       "path": "src/game.js",
-      "bytes": 14434,
-      "sha256": "6538ef7b797c6310e3322f588c951ac51ff7125db4489a781a732feab3aa6fd3"
+      "bytes": 17475,
+      "sha256": "df98fa3eb42318c70fd96c23188c433046cbeac707c005a3965a833ce75b148b"
     },
     {
       "path": "src/hands.js",
@@ -233,8 +233,8 @@
     },
     {
       "path": "src/i18n.js",
-      "bytes": 16592,
-      "sha256": "6bd7b0f454830bcef988a730ca1b99ec14c6b5fa6b9015d3caa1d498d07f145f"
+      "bytes": 16652,
+      "sha256": "b0b7e624e5cd55af7e174208441010f8cb60709743b0280852a2bd84836d0f39"
     },
     {
       "path": "src/impact.js",
@@ -268,8 +268,8 @@
     },
     {
       "path": "src/renderer.js",
-      "bytes": 13608,
-      "sha256": "5fa58d07c3215bfd3890da635fb76c17bd7656fcd81e4c34b1223a536774bc66"
+      "bytes": 15249,
+      "sha256": "6d6f8d2fddcbd8c5bc18c97f59e279f0cbb148ac0de6023b6964ca5a9050da46"
     },
     {
       "path": "src/result-card.js",
@@ -283,8 +283,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 24383,
-      "sha256": "5e0cdc3183be01d2b60fcf1ee84f66ef9e8663f44b25a4d4abaf7c225779ff7c"
+      "bytes": 25080,
+      "sha256": "354b42971a43f3b20debb53ec150c5ae1fec0627210f627a26cea4e726a3dd4c"
     },
     {
       "path": "vendor/pose-detection.min.js",

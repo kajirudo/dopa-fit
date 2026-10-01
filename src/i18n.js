@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 export const messages = {
+  calibrationDetails:['説明・設定','Help & settings'],
   practiceLeft:['まずは左の光へ！どちらの手でもOK · あと{n}秒','Try the left glow! Either hand works · {n}s'],practiceRight:['いいね！次は右の光へ · あと{n}秒','Nice! Now touch the right glow · {n}s'],practiceSkip:['練習をスキップ →','Skip practice →'],rise:['{name}へ… ビートをためよう！','Get ready for {name}…'],
   cardBuild:['BUILD THE BEAT','BUILD THE BEAT'],cardTitle:['あなたが育てたビート','THE BEAT YOU BUILT'],cardDemo:['カメラなしのデモの成果','No-camera demo results'],cardSession:['身体の動きが、音と光になった。','Your movement became music and light.'],cardFever:['最高FEVER','HIGHEST FEVER'],cardTime:['運動時間','ACTIVE TIME'],cardThanks:['いい動き！またビートを育てよう。','Nice moves. Let’s build another beat.'],cardPositive:['ひと息ついても、成果はあなたのもの。','Every move counts. Your progress stays yours.'],cardSave:['成果カードを画像で保存 ↓','Save result card ↓'],cardSaved:['画像の保存を開始しました。','Image download started.'],cardFailed:['保存できませんでした。もう一度試してください。','Could not save. Please try again.'],playAgain:['もう一回、動こう ↗','Move again ↗'],
   history:['運動の記録','Your sessions'], hero:['動くたび、世界がちょっと\n気持ちよくなる。','A little movement.\nA lot of joy.'],

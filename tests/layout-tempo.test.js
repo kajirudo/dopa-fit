@@ -28,10 +28,10 @@ test('tempo changes exactly on the next unreserved bar, musical phase is continu
     const club=played.filter(v=>v[0]==='club-kick');assert.ok(club.length>0);
   } finally {engine.stop();}
 });
-test('target replacement stays on the changed music grid and maintains the 350ms hit rest',()=>{
+test('target replacement stays on the changed music grid and maintains the 220ms fever hit rest',()=>{
   const manager=new TargetManager({center:{x:180,y:200},shoulder:90,rect:{x:0,y:0,width:360,height:600}},true);
   manager.advance(0,0,'FEVER',500);const target=manager.targets[0];target.hitAt=50;manager.planNext(target,50);
-  manager.advance(100,.1,'FEVER',375);assert.ok(target.relocateAt>=400);
+  manager.advance(100,.1,'FEVER',375);assert.ok(target.relocateAt>=270);
   assert.ok(Math.abs((target.relocateAt-manager.beatOrigin)/375-Math.round((target.relocateAt-manager.beatOrigin)/375))<1e-8);
   assert.equal(target.next.arrivesAt,target.relocateAt);
 });

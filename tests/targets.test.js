@@ -52,8 +52,9 @@ test('successes alternate through all four heights on each side without growing 
 });
 test('quiet expirations and FEVER / REST patterns never decrease progress or generate HIT events', () => {
   const game=new GameEngine(calibration,3);game.energy.energy=150;
-  game.targets.advance(0,0,'BUILD');game.targets.advance(5000,5,'FEVER');
-  assert.equal(game.energy.energy,150);assert.ok(game.targets.preview);
+  game.targets.advance(0,0,'BUILD');game.targets.advance(5000,5,'BUILD');
+  assert.ok(game.targets.preview);game.targets.advance(5100,5.1,'FEVER');
+  assert.equal(game.energy.energy,150);assert.equal(game.targets.active.length,4);
   const normal=new TargetManager(calibration,true), fever=new TargetManager(calibration,true), rest=new TargetManager(calibration,true);
   fever.cycle='FEVER';rest.cycle='REST';
   assert.notEqual(normal.destination(1,0).height,fever.destination(1,0).height);

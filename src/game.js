@@ -38,6 +38,24 @@ export function segmentDistance(point, a, b) {
   const t = length ? clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / length, 0, 1) : 0;
   return distance(point, { x: a.x + t * dx, y: a.y + t * dy });
 }
+// A denser field inside the selected reach. Reduce tile size, never extend reach.
+export function feverPositions(calibration, reach = 'wide') {
+  const base = targetPositions(calibration, reach), { bounds } = targetLayout(calibration);
+  const radius = Math.max(22, base[0].radius * .72), gap = radius * 2 + 10;
+  const left = Math.max(bounds.x + radius + 8, Math.min(...base.map(p => p.x)));
+  const right = Math.min(bounds.x + bounds.width - radius - 8, Math.max(...base.map(p => p.x)));
+  const top = Math.max(bounds.y + radius + 8, Math.min(...base.map(p => p.y)));
+  const bottom = Math.min(bounds.y + bounds.height - radius - 8, Math.max(...base.map(p => p.y)));
+  const columns = Math.max(1, Math.min(4, Math.floor((right-left) / gap) + 1));
+  const rows = Math.max(1, Math.min(4, Math.floor((bottom-top) / gap) + 1));
+  const positions = [];
+  // Interleave left/right and heights so every stage fills the whole field.
+  for (const row of [1,2,0,3].filter(r => r < rows)) for (const col of [0,columns-1,1,2].filter((c,i,a) => c < columns && a.indexOf(c) === i)) {
+    const x = columns === 1 ? (left+right)/2 : left + (right-left)*col/(columns-1);
+    positions.push({slot:positions.length, lane:x < (left+right)/2 ? 0 : 1, height:row, x, y:rows === 1 ? (top+bottom)/2 : top+(bottom-top)*row/(rows-1), radius});
+  }
+  return positions;
+}
 export const hitIntensity = speed => 1 + clamp(((Number.isFinite(speed) ? speed : 0) - .8) / 5, 0, 1) * .35;
 export class TargetManager {
   constructor(calibration, flow = false, reach = 'wide') {
@@ -46,12 +64,12 @@ export class TargetManager {
     this.targets = [];
     this.previous = {};
     this.handReadyAt = {};
-    this.positions = targetPositions(calibration, reach); this.leadId = 0; this.cycle = 'BUILD';
+    this.positions = targetPositions(calibration, reach); this.feverPositions = feverPositions(calibration, reach); this.leadId = 0; this.cycle = 'BUILD'; this.feverLevel = 1;
     this.place();
   }
   place() {
     const { center: c } = this.calibration, { radius, span: s, bounds:rect } = targetLayout(this.calibration);
-    this.targets = [-1, 1].map((side, index) => ({ id: index, x: clamp(c.x + side * .9 * s,rect.x+radius+8,rect.x+rect.width-radius-8), y: clamp(c.y + .25 * s,rect.y+radius+8,rect.y+rect.height-radius-8), radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
+    this.targets = [-1, 1].map((side, index) => ({ id: index, lane:index, x: clamp(c.x + side * .9 * s,rect.x+radius+8,rect.x+rect.width-radius-8), y: clamp(c.y + .25 * s,rect.y+radius+8,rect.y+rect.height-radius-8), radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
     if (this.dynamic) for (const target of this.targets) Object.assign(target, this.destination(target.id, 0));
     for (const target of this.targets) { target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
   }
@@ -63,20 +81,41 @@ export class TargetManager {
     return candidates.find(p => p.height === height) || candidates.reduce((a, b) => Math.abs(b.height - height) < Math.abs(a.height - height) ? b : a);
   }
   get active() { return this.targets.filter(t => !t.waiting); }
+  get cooldownMs() { return this.cycle === 'FEVER' ? 220 : 350; }
+  syncField(now, previousCycle) {
+    if (!this.dynamic) return;
+    if (this.cycle === 'FEVER') {
+      const count = Math.min(feverStage(this.feverLevel).targets, this.feverPositions.length);
+      if (previousCycle === 'FEVER' && this.targets.length === count) return;
+      this.targets = this.feverPositions.slice(0,count).map((p,id) => ({...p,id,readyAt:now,arms:{},hitAt:-Infinity,visits:0,bornAt:now,expiresAt:now+(8+(id%4)*.5)*this.beatMs}));
+      this.leadId = 0; this.resetArms();
+    } else if (previousCycle === 'FEVER') { this.place(); this.leadId = 0; this.resetArms(); }
+  }
+  nextDestination(target) {
+    if (this.cycle !== 'FEVER') return this.destination(target.lane, target.visits);
+    const occupied = new Set(this.targets.filter(t => t !== target).map(t => (t.next || t).slot));
+    const candidates = this.feverPositions.filter(p => p.lane === target.lane && !occupied.has(p.slot));
+    const alternatives = candidates.filter(p => p.slot !== target.slot);
+    return (alternatives.length ? alternatives : candidates)[target.visits % (alternatives.length || candidates.length)];
+  }
   get preview() { return this.targets.filter(t => t.waiting).sort((a, b) => a.relocateAt - b.relocateAt)[0]?.next || null; }
   planNext(target, now) {
     target.waiting = true; target.arms = {};
-    const earliest = now + 350;
-    target.relocateAt = this.beatOrigin + Math.ceil((earliest - this.beatOrigin) / this.beatMs) * this.beatMs;
-    target.next = { ...this.destination(target.id, ++target.visits), bornAt: now, arrivesAt: target.relocateAt };
-    this.leadId = 1 - target.id;
+    const earliest = now + this.cooldownMs;
+    const step = this.beatMs * (this.cycle === 'FEVER' ? feverStage(this.feverLevel).respawnBeats : 1);
+    target.relocateAt = this.beatOrigin + Math.ceil((earliest - this.beatOrigin) / step) * step;
+    target.visits++;
+    target.next = { ...this.nextDestination(target), bornAt: now, arrivesAt: target.relocateAt };
+    this.leadId = this.active.find(t => t.lane !== target.lane)?.id ?? this.active[0]?.id ?? target.id;
   }
-  advance(now, seconds, cycle = this.cycle, beatMs = this.beatMs || BEAT_MS) {
-    this.cycle = cycle; this.beatOrigin ??= now;
+  advance(now, seconds, cycle = this.cycle, beatMs = this.beatMs || BEAT_MS, level = this.feverLevel) {
+    const previousCycle = this.cycle;
+    this.cycle = cycle; this.feverLevel = feverStage(level).level; this.beatOrigin ??= now;
     const changed=this.beatMs && Math.abs(this.beatMs-beatMs)>.01;this.beatMs=beatMs;
     if (Number.isFinite(seconds)) this.beatOrigin = now - seconds * 1000;
+    this.syncField(now, previousCycle);
     for (const target of this.targets) {
-      if(changed && target.waiting) { const earliest=Math.max(now,(target.hitAt||0)+350);target.relocateAt=this.beatOrigin+Math.ceil((earliest-this.beatOrigin)/this.beatMs)*this.beatMs;target.next.arrivesAt=target.relocateAt; }
+      if(changed && target.waiting) { const earliest=Math.max(now,(target.hitAt||0)+this.cooldownMs),step=this.beatMs*(this.cycle==='FEVER'?feverStage(this.feverLevel).respawnBeats:1);target.relocateAt=this.beatOrigin+Math.ceil((earliest-this.beatOrigin)/step)*step;target.next.arrivesAt=target.relocateAt; }
       if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 8 * this.beatMs : Infinity; }
       if (target.waiting && now >= target.relocateAt) {
         Object.assign(target, target.next); target.next = null; target.waiting = false;
@@ -107,8 +146,8 @@ export class TargetManager {
         if ((d <= radius || crossed) && target.arms[name]) {
           target.arms[name] = false;
           if (now < target.readyAt || now < (this.handReadyAt[name] || 0)) continue;
-          target.readyAt = now + 350;
-          this.handReadyAt[name] = now + 350;
+          target.readyAt = now + this.cooldownMs;
+          this.handReadyAt[name] = now + this.cooldownMs;
           if (this.dynamic) this.planNext(target, now);
           target.hitAt = now;
           target.arms = {};

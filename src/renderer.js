@@ -23,11 +23,11 @@ export class Renderer {
     this.rewards = this.rewards.filter(reward => Math.hypot(event.x - reward.x, event.y - reward.y) > 64);
     this.rewards.push({ ...event, color, label: move ? 'MOVE +1' : event.type === 'hit' ? 'HIT +5' : 'NICE +5' });
     if (this.rewards.length > 8) this.rewards.shift();
-    if (!move) this.particles.burst(event.x, event.y, this.inFever ? feverStage(this.feverLevel).color : color, { count: Math.round((this.phase >= 3 ? this.inFever ? 54+6*this.feverLevel : 48 : 18) * (event.intensity || 1)), power: (1.55+(this.inFever?this.feverLevel*.07:0)) * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
+    if (!move) this.particles.burst(event.x, event.y, this.inFever ? feverStage(this.feverLevel).color : color, { count: Math.round((this.phase >= 3 ? this.inFever ? 48+12*this.feverLevel : 48 : 18) * (event.intensity || 1)), power: (1.55+(this.inFever?this.feverLevel*.1:0)) * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
   }
   celebrate(cue, now) {
     this.celebration = { ...cue, at: now };
-    if (cue.kind === 'fever' || cue.kind === 'rally' || cue.kind === 'unlock') this.particles.burst(this.width / 2, this.height * .3, feverStage(cue.level).color, { count: cue.kind === 'fever' ? 72+8*(cue.level||1) : 36, power: 1.4, confetti: true });
+    if (cue.kind === 'fever' || cue.kind === 'rally' || cue.kind === 'unlock') this.particles.burst(this.width / 2, this.height * .3, feverStage(cue.level).color, { count: cue.kind === 'fever' ? 64+16*(cue.level||1) : 36, power: cue.level===5?1.9:1.4, confetti: true });
   }
   draw(pose, game, now, dt, seconds = 0) {
     const ctx = this.ctx; ctx.clearRect(0, 0, this.width, this.height);
@@ -42,11 +42,35 @@ export class Renderer {
       gradient.addColorStop(0, fever ? `rgba(${stage.rgb},${.10+stage.level*.018+beat*.10})` : `rgba(133,217,192,${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient; ctx.fillRect(0, 0, this.width, this.height);
       if (fever && !reduced) {
-        const rays = this.particleBudget === 80 ? 6 : 8+stage.level*2;
+        const rays = this.particleBudget === 80 ? 6 : stage.level===5?28:8+stage.level*3;
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(seconds * (.08+stage.level*.025)); ctx.fillStyle = `rgba(${stage.rgb},${.025 + beat * .018})`;
         for (let i = 0; i < rays; i++) { ctx.rotate(Math.PI * 2 / rays); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, radius, -.07, .07); ctx.closePath(); ctx.fill(); }
         ctx.restore();
+        // Upper stages keep celebrating on the beat, beyond the initial title.
+        const beatIndex = Math.floor(seconds / (60 / 112));
+        if (stage.level >= 3 && beatIndex !== this.lastFeverBeat) {
+          this.lastFeverBeat = beatIndex;
+          const y = this.height * (.22 + (beatIndex % 3) * .2);
+          for (const x of [this.width*.08,this.width*.92]) this.particles.burst(x,y,stage.color,{count:stage.level===5?22:stage.level*3,power:.7,confetti:true,life:.55});
+        }
+        if (stage.level === 5) {
+          ctx.strokeStyle=stage.color;ctx.lineWidth=2;
+          for(let i=0;i<3;i++) {
+            const wave=(seconds*.55+i/3)%1;
+            ctx.globalAlpha=(1-wave)*.16;
+            ctx.beginPath();ctx.ellipse(cx,cy,this.width*(.2+wave*.65),this.height*(.12+wave*.4),-.2,0,Math.PI*2);ctx.stroke();
+          }
+          // Small star glints add density without hiding hands or target labels.
+          for(let i=0;i<(this.particleBudget===80?8:24);i++) {
+            const x=(i*.61803398875%1)*this.width,y=((i*.381966+seconds*.025)%1)*this.height;
+            const size=2+Math.sin(seconds*3+i)**2*4;
+            ctx.globalAlpha=.15+Math.sin(seconds*2+i)**2*.3;ctx.strokeStyle=i%2?stage.color:'#ffe486';
+            ctx.beginPath();ctx.moveTo(x-size,y);ctx.lineTo(x+size,y);ctx.moveTo(x,y-size);ctx.lineTo(x,y+size);ctx.stroke();
+          }
+          ctx.globalAlpha=1;
+        }
       }
+      if (!fever || reduced) this.lastFeverBeat = null;
       // Beat bars sit along the floor, leaving the camera and targets readable.
       if (!reduced) for (let i = 0; i < 18; i++) {
         const height = (6 + 12 * beat) * (.45 + .55 * Math.sin(i * 1.7 + seconds * 2) ** 2) * (1 + (feedback?.layer || 0) * .15);
@@ -80,22 +104,23 @@ export class Renderer {
     }
     this.departingTargets=(this.departingTargets||[]).filter(t=>now-t.hitAt<280);
     if (game) for (const t of [...game.targets.targets,...this.departingTargets]) {
-      const color = t.id === 1 ? '#85d9c0' : '#ffb192', impact = impactAt(now - t.hitAt, t.intensity || 1, reduced);
+      const right = (t.lane ?? t.id) === 1;
+      const color = fever ? [stage.color,'#ffe486','#8af4bf','#88caff','#dba3ff'][t.id%5] : right ? '#85d9c0' : '#ffb192', impact = impactAt(now - t.hitAt, t.intensity || 1, reduced);
       if (t.waiting && !impact.alpha) continue;
-      const arrival = reduced || !game.targets.dynamic ? 1 : Math.min(1, Math.max(0, (now - (t.bornAt ?? now)) / 900));
+      const arrival = reduced || !game.targets.dynamic ? 1 : Math.min(1, Math.max(0, (now - (t.bornAt ?? now)) / (fever ? 320 : 900)));
       const depth = .8 + .2 * (1 - (1 - arrival) ** 3), radius = t.radius * depth * impact.scale;
       const fade = reduced || !Number.isFinite(t.expiresAt) ? 1 : Math.min(1, Math.max(.2, (t.expiresAt - now) / 200));
       if (!reduced) {
         const glow = ctx.createRadialGradient(t.x,t.y,0,t.x,t.y,t.radius*2.4);
-        glow.addColorStop(0, t.id === 1 ? '#85d9c080' : '#ffb19280'); glow.addColorStop(1,'#ffffff00');
+        glow.addColorStop(0, `${color}80`); glow.addColorStop(1,'#ffffff00');
         ctx.globalAlpha=fade*(.55+beat*.3);ctx.fillStyle=glow;ctx.fillRect(t.x-t.radius*2.4,t.y-t.radius*2.4,t.radius*4.8,t.radius*4.8);
       }
       // The faint outer circle marks the generous, constant hit area.
       ctx.globalAlpha = .25 * fade; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(t.x, t.y, t.radius + 6, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = fade * (t.waiting ? impact.alpha : t.id === game.targets.leadId || !game.targets.dynamic ? 1 : .78);
       const disc = ctx.createRadialGradient(t.x - radius * .25, t.y - radius * .3, 0, t.x, t.y, radius);
-      disc.addColorStop(0, t.id === 1 ? '#b8f4de' : '#ffd6be'); disc.addColorStop(.68, color); disc.addColorStop(1, t.id === 1 ? '#347d70' : '#b65e44');
-      if (game.targets.dynamic) { ctx.fillStyle=t.id === 1 ? '#28584f' : '#763f32';tilePath(ctx,t.x+3,t.y-4,radius);ctx.fill();tilePath(ctx,t.x,t.y,radius); }
+      disc.addColorStop(0, fever ? '#fff5ef' : right ? '#b8f4de' : '#ffd6be'); disc.addColorStop(.68, color); disc.addColorStop(1, right ? '#347d70' : '#b65e44');
+      if (game.targets.dynamic) { ctx.fillStyle=right ? '#28584f' : '#763f32';tilePath(ctx,t.x+3,t.y-4,radius);ctx.fill();tilePath(ctx,t.x,t.y,radius); }
       else { ctx.beginPath(); ctx.arc(t.x, t.y, radius, 0, Math.PI * 2); }
       ctx.fillStyle = disc; ctx.fill(); ctx.strokeStyle = '#ffffffc9'; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.fillStyle = '#173b32'; ctx.font = `800 ${Math.max(10, radius * .36)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(game.targets.dynamic && t.id === game.targets.leadId ? 'GO' : touchLabel(), t.x, t.y + 4);
@@ -107,7 +132,7 @@ export class Renderer {
       const impact = impactAt(now - reward.at, reward.intensity || 1);
       if (reward.type === 'move' || !impact.alpha) continue;
       ctx.strokeStyle = fever ? stage.color : reward.color; ctx.globalAlpha = impact.alpha * .9; ctx.lineWidth = 3 * impact.alpha + 1;
-      for (let ring = 0; ring < (fever && stage.level>=4?4:3); ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (85 + ring * 28), 0, Math.PI * 2); ctx.stroke(); }
+      for (let ring = 0; ring < (fever && stage.level===5?5:fever && stage.level>=4?4:3); ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (85 + ring * 28), 0, Math.PI * 2); ctx.stroke(); }
       for (let i = 0; i < 8; i++) { const angle = i * Math.PI / 4, start = 26 + impact.ring * 38, end = start + impact.alpha * 20; ctx.beginPath(); ctx.moveTo(reward.x + Math.cos(angle) * start, reward.y + Math.sin(angle) * start); ctx.lineTo(reward.x + Math.cos(angle) * end, reward.y + Math.sin(angle) * end); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }

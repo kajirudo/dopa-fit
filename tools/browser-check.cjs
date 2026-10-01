@@ -89,6 +89,8 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.equal(await page.locator('#rally-count').textContent(),String(rewards.hits));
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
     assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
+    assert.equal(await page.evaluate(()=>window.testApp.game.targets.targets.length),4);
+    await page.screenshot({path:path.join(root,'test-results/fever-1.png')});
     for(let level=2;level<=5;level++) {
       await page.evaluate(async()=>{const a=window.testApp,e=a.game.energy;
         // Synthetic time advances test all five stages without claiming a physical session.
@@ -101,9 +103,14 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
       assert.ok((await page.locator('#cycle').textContent()).includes(`${level}/5`));
       assert.equal(await page.locator('#fever-levels .on').count(),level);
       assert.ok(await page.evaluate(()=>window.testApp.renderer.particles.parts.length<=240&&window.testApp.audio.voices.size<=24&&window.testApp.audio.nodeCount<=160));
-      if(level===3||level===5)await page.screenshot({path:path.join(root,`test-results/fever-${level}.png`)});
+      await page.waitForFunction(()=>window.testApp.game.presentationCycle==='FEVER');
+      assert.equal(await page.evaluate(()=>window.testApp.game.targets.targets.length),[4,6,8,10,12][level-1]);
+      assert.equal(await page.evaluate(()=>{const m=window.testApp.game.targets;return m.active.every((t,i,a)=>a.slice(i+1).every(u=>Math.hypot(t.x-u.x,t.y-u.y)>=t.radius+u.radius+9));}),true);
+      await page.waitForTimeout(450);await page.screenshot({path:path.join(root,`test-results/fever-${level}.png`)});
     }
     assert.ok((await page.locator('#cycle').textContent()).includes('SUPERNOVA'));assert.ok((await page.locator('#cycle').textContent()).includes('160 BPM'));check('Five named FEVER stages update actual tempo / target rhythm / color / bounded effects and preserve progress');
+    await page.waitForTimeout(1400);assert.ok(await page.evaluate(()=>window.testApp.renderer.particles.parts.length)>0);await page.screenshot({path:path.join(root,'test-results/supernova-sustained.png')});
+    check('FEVER grows 4 / 6 / 8 / 10 / 12 separated targets; Supernova keeps emitting beat confetti after the entry');
     await page.locator('#pause').click();
     await page.locator('#reach').selectOption('small');
     await page.screenshot({path:path.join(root,'test-results/settings.png')});
