@@ -14,7 +14,7 @@ export class FeedbackDirector {
     }
     if (state.cycle === 'FEVER' && this.cycle !== 'FEVER') { const stage=feverStage(state.feverLevel);cues.push({ kind: 'fever', level: stage.level, title: `${stage.name}!`, subtitle: `FEVER ${stage.level} / 5 · ${t(stage.level===5?'feverMax':'feverNote')}`, duration: 3000, priority: 5 }); }
     if (state.cycle === 'REST' && this.cycle !== 'REST') cues.push({ kind: 'rest', title: 'NICE FLOW', subtitle: t('restNote'), duration: 2000, priority: 4 });
-    if (state.energy - state.lastFeverEnergy >= 75 && state.cycle !== 'FEVER' && this.nearCycle !== state.lastFeverEnergy) {
+    if (state.energy - state.lastFeverEnergy >= 75 && state.cycle === 'BUILD' && this.nearCycle !== state.lastFeverEnergy) {
       this.nearCycle = state.lastFeverEnergy;
       cues.push({ kind: 'near', title: `${feverStage(state.nextFeverLevel).name} IS COMING`, subtitle: t('next',{name:`FEVER ${state.nextFeverLevel || 1} / 5`}), duration: 1900, priority: 1 });
     }

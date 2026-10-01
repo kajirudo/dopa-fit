@@ -54,6 +54,7 @@ export class AudioManager {
   }
   get nodeCount() { return this.ctx ? 3 + [...this.voices].reduce((n, voice) => n + voice.nodes.length, 0) : 0; }
   setMusicStyle(cycle,level,when) { if(this.musicGain && this.ctx)this.musicGain.gain.setTargetAtTime(cycle==='REST'?.55:cycle==='FEVER'?1.1+.05*feverStage(level).level:.85,Math.max(this.ctx.currentTime,when),.04); }
+  setBuildUp(when,duration) { if(this.musicGain&&this.ctx){const at=Math.max(this.ctx.currentTime,when),gain=this.musicGain.gain;gain.cancelScheduledValues(at);gain.setValueAtTime(.85,at);gain.linearRampToValueAtTime(.32,at+Math.max(.05,duration-.03));} }
   setVolume(value) { this.volume = Math.max(0, Math.min(1, value)); if (this.ctx && this.ctx.state !== 'closed') this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * .65, this.ctx.currentTime, .02); }
   setMuted(value) { this.muted = value; this.setVolume(this.volume); }
   play(kind, when, note = 60, priority = false, intensity = 1) {

@@ -13,6 +13,8 @@ import { FeedbackDirector } from './feedback.js';
 import { FEVER_STAGES, feverStage, BASE_BPM, REST_BPM } from './fever.js';
 import { mascotBox } from './layout.js';
 import { t, initialLanguage, setLanguage, applyLanguage, getLanguage } from './i18n.js';
+import { Practice } from './practice.js';
+import { drawResultCard, downloadResultCard } from './result-card.js';
 const $ = id => document.getElementById(id);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 export class AppController {
@@ -42,6 +44,9 @@ export class AppController {
     $('settings-close').onclick = () => { $('settings').close(); this.resume(); };
     $('resume').onclick = () => this.resume();
     $('result-close').onclick = () => $('result').close();
+    $('practice-skip').onclick = () => {if(this.state==='PLAYING'&&this.practice?.active){this.practice.skip();this.endPractice();}};
+    $('play-again').onclick = () => { $('result').close();this.start(this.demo); };
+    $('card-save').onclick = async () => { $('card-save').disabled=true;try{await downloadResultCard($('result-card'));$('card-status').textContent=t('cardSaved');}catch{$('card-status').textContent=t('cardFailed');}finally{$('card-save').disabled=false;} };
     $('history-open').onclick = () => { this.renderHistory(); $('history').showModal(); };
     $('history-close').onclick = () => $('history').close();
     $('history-clear').onclick = () => { this.store.clearHistory(); this.renderHistory(); };
@@ -105,6 +110,7 @@ export class AppController {
     $('offline').textContent=t(this.offlineStatus||'online');if(this.updateBusy)$('update').textContent=t('updateBusy');
     if(this.state==='CALIBRATING')this.showCalibration(this.latestCalibration);else if(message)this.messageKey(message.key,message.action,message.values);
     if($('history').open)this.renderHistory();this.updateUI(performance.now());
+    if($('result').open&&this.resultRecord)drawResultCard($('result-card'),this.resultRecord,this.renderer.characters.idle);
   }
   showCalibration(result=null) {
     this.latestCalibration=result;this.messageKey(this.demo?'demoGuide':result?.reason||'calHands');
@@ -116,8 +122,9 @@ export class AppController {
   async start(demo) {
     if (!['IDLE', 'FINISHED', 'ERROR'].includes(this.state)) return;
     this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
+    this.practice=new Practice(this.phase>=2);this.peakFeverLevel=0;this.audibleFeverToken=null;
     $('audio-help').classList.add('hidden');
-    this.feedbackDirector.reset(); this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
+    this.feedbackDirector.reset();this.renderer.departingTargets=[]; this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
     $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : `${t(this.bodyMode==='upper'?'upper':'full')} · ${this.course?'3 MIN FLOW':'FREE FLOW'}`;
     this.state = 'STARTING'; this.updateUI(performance.now()); this.renderer.resize(); this.messageKey(demo?'startingDemo':'starting');
     const generation = ++this.generation;
@@ -163,12 +170,22 @@ export class AppController {
     if (this.state === 'COUNTDOWN') {
       const left = Math.ceil(3 - (now - this.countdownAt) / 1000);
       if (left > 0) this.message(String(left), false, true);
-      else { this.state = 'PLAYING'; $('stage-scrim').classList.add('hidden'); if (this.phase >= 2) this.music.start(this.seconds); }
+      else { this.state = 'PLAYING'; $('stage-scrim').classList.add('hidden');if(this.practice?.active)this.practice.attach(this.game,now); if (this.phase >= 2) this.music.start(this.seconds); }
     }
     if (this.state === 'PLAYING') {
-      this.seconds += dt; this.game.energy.tick(this.seconds, dt, this.phase >= 3);
+      this.seconds += dt;
+      if(this.practice?.active){this.practice.tick(dt);if(!this.practice.active)this.endPractice();}
+      this.game.energy.tick(this.seconds, dt, this.phase >= 3&&!this.practice?.active);
+      const energy=this.game.energy,audible=this.music.clock;
+      const waiting=energy.cycle==='FEVER'&&this.audio.ready&&this.music.timer!==null&&(audible?.cycle!=='FEVER'||audible?.token!==energy.lastFeverEnergy);
+      this.game.presentationCycle=waiting?'RISE':energy.cycle;
+      if(waiting)energy.phaseAt=this.seconds;
+      else if(energy.cycle==='FEVER'){
+        if(this.audibleFeverToken!==energy.lastFeverEnergy){this.audibleFeverToken=energy.lastFeverEnergy;energy.phaseAt=this.seconds;}
+        this.peakFeverLevel=Math.max(this.peakFeverLevel,energy.feverLevel);
+      }
       const clock=this.music.clock, bpm=this.game.energy.cycle==='FEVER'?feverStage(this.game.energy.feverLevel).bpm:this.game.energy.cycle==='REST'?REST_BPM:BASE_BPM;
-      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.energy.cycle, clock?.beatMs ?? 60000/bpm);
+      this.game.targets.advance(now, clock?.seconds ?? this.seconds, this.game.presentationCycle, clock?.beatMs ?? 60000/bpm);
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
     }
@@ -178,7 +195,7 @@ export class AppController {
     }
     if (this.demo && this.state === 'PLAYING') this.processDemo(now);
     if (this.phase >= 3 && this.state === 'PLAYING') {
-      const cue = this.feedbackDirector.update(this.game.energy);
+      const cue = this.feedbackDirector.update(this.feedbackState);
       if (cue) this.celebrate(cue, now);
     }
     this.renderer.draw(this.mapped, this.game, now, dt, this.music.clockSeconds ?? this.seconds); this.updateUI(now);
@@ -216,10 +233,13 @@ export class AppController {
     const hasAccent = events.some(event => event.type !== 'move');
     for (const event of events) {
       if (event.type === 'move') { if (hasAccent) continue; this.audio.move(); }
-      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.energy.cycle === 'FEVER' ? this.game.energy.feverLevel : 0, event.intensity || 1);
+      else this.audio.hit(event.targetId ?? 2, this.phase >= 3 && this.game?.presentationCycle === 'FEVER' ? this.game.energy.feverLevel : 0, event.intensity || 1);
       this.renderer.reward(event);
     }
+    if(this.practice?.hit(events)){this.renderer.departingTargets=[{...this.game.targets.active[0],waiting:true}];if(this.practice.active)this.practice.attach(this.game,performance.now());else this.endPractice();}
   }
+  endPractice() { this.practice.restore(this.game,$('reach').value);this.updateUI(performance.now()); }
+  get feedbackState() {const state=this.game?.energy;return state?{...state,cycle:this.game.presentationCycle||state.cycle,layer:state.layer,nextFeverLevel:state.nextFeverLevel,feverDuration:state.feverDuration}:null;}
   celebrate(cue, now) {
     if (this.cueUntil > now && this.lastCue?.priority > cue.priority) return;
     this.lastCue = cue; this.cueUntil = now + cue.duration; this.renderer.celebrate(cue, now); this.audio.celebrate(cue.kind,cue.level);
@@ -230,12 +250,17 @@ export class AppController {
     if (!this.renderer.particles.reduced && !matchMedia('(prefers-reduced-motion: reduce)').matches) $('celebration').animate([{ opacity: 0, transform: 'translateY(8px) scale(.94)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
   }
   updateUI(now) {
-    const state = this.game?.energy;
+    const state = this.feedbackState;
+    const practicing=this.state==='PLAYING'&&this.practice?.active;
+    $('practice').classList.toggle('hidden',!practicing);
+    $('demo-badge').classList.toggle('hidden',!this.demo||practicing);
+    if(practicing)$('practice-note').textContent=t(this.practice.lane?'practiceRight':'practiceLeft',{n:this.practice.remaining});
     $('energy').textContent = state?.energy || 0; $('timer').textContent = formatTime(this.seconds);
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
     const stage=feverStage(state?.feverLevel), next=state?.nextFeverLevel || 1;
     const bpm=this.music.clock?.bpm || (state?.cycle==='FEVER'?stage.bpm:state?.cycle==='REST'?REST_BPM:BASE_BPM);
-    $('cycle').textContent = state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ${t('calm')}` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? t('until',{name:feverStage(next).name,n:Math.max(0,100-(state.energy-state.lastFeverEnergy))}) : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · ${t('next',{name:feverStage(next).name})}` : 'BUILD THE BEAT';
+    $('cycle').textContent = state?.cycle === 'RISE'?t('rise',{name:stage.name}):state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ${t('calm')}` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? t('until',{name:feverStage(next).name,n:Math.max(0,100-(state.energy-state.lastFeverEnergy))}) : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · ${t('next',{name:feverStage(next).name})}` : 'BUILD THE BEAT';
+    $('play').classList.toggle('rising',state?.cycle==='RISE');
     $('play').dataset.feverLevel=String(state?.feverLevel || 0);
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
     $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && !state.feverLevel && state.energy - state.lastFeverEnergy < 75) || !state);
@@ -282,9 +307,10 @@ export class AppController {
     const hadGame = !!this.game, energy = this.game?.energy; this.generation++; this.state = 'FINISHED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); await this.audio.close(); await this.pose.dispose();
     $('play').classList.add('hidden'); $('landing').classList.remove('hidden'); this.mapped = null; this.renderer.particles.parts = [];
     if (hadGame) {
-      const record = { at: new Date().toISOString(), seconds: Math.floor(this.seconds), energy: energy.energy, hits: energy.hits, input: this.demo ? 'demo' : 'camera' };
+      const record = { at: new Date().toISOString(), seconds: Math.floor(this.seconds), energy: energy.energy, hits: energy.hits, feverLevel:this.peakFeverLevel||0, input: this.demo ? 'demo' : 'camera' };
       const saved = this.phase >= 4 && this.store.saveSession(record);
       $('result-energy').textContent = record.energy; $('result-hits').textContent = record.hits; $('result-time').textContent = formatTime(record.seconds);
+      this.resultRecord=record;drawResultCard($('result-card'),record,this.renderer.characters.idle);$('result-fever').textContent=`${record.feverLevel}/5`;$('card-status').textContent='';
       $('saved-note').textContent = t(saved?(this.demo?'savedDemo':'saved'):this.phase<4?'notSavedMode':'notSaved');
       $('result').showModal();
     }

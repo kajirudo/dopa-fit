@@ -31,7 +31,7 @@ export class Renderer {
   }
   draw(pose, game, now, dt, seconds = 0) {
     const ctx = this.ctx; ctx.clearRect(0, 0, this.width, this.height);
-    const feedback = game?.energy, advanced = game?.phase >= 3, fever = feedback?.cycle === 'FEVER', reduced = this.particles.reduced;
+    const feedback = game?.energy, advanced = game?.phase >= 3, cycle=game?.presentationCycle||feedback?.cycle, fever = cycle === 'FEVER', reduced = this.particles.reduced;
     this.inFever = fever;
     const stage=feverStage(feedback?.feverLevel);this.feverLevel=stage.level;
     const beat = reduced ? 0 : Math.exp(-(seconds % (60 / 112)) / (60 / 112) * 6);
@@ -53,6 +53,9 @@ export class Renderer {
         ctx.fillStyle = fever ? stage.color : '#85d9c0'; ctx.globalAlpha = .18; ctx.fillRect(12 + i * (this.width * .65 / 18), this.height - height - 8, 4, height);
       }
       ctx.globalAlpha = 1;
+      if(cycle==='RISE'&&!reduced){ctx.strokeStyle=stage.color;ctx.lineWidth=3;for(let i=0;i<3;i++){const p=(seconds*1.4+i/3)%1;ctx.globalAlpha=p*.3;ctx.beginPath();ctx.arc(cx,cy,40+(1-p)*this.width*.6,0,Math.PI*2);ctx.stroke();}ctx.globalAlpha=1;}
+      const drop=this.celebration?.kind==='fever'?(now-this.celebration.at)/650:1;
+      if(drop>=0&&drop<1&&!reduced){ctx.strokeStyle=stage.color;ctx.globalAlpha=(1-drop)*.65;ctx.lineWidth=10*(1-drop)+2;ctx.beginPath();ctx.arc(cx,cy,30+drop*Math.max(this.width,this.height)*.65,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
     }
     if (game?.targets.dynamic) {
       const manager = game.targets, c = game.calibration.center, s = targetLayout(game.calibration).span;
@@ -75,7 +78,8 @@ export class Renderer {
         ctx.globalAlpha=.8;ctx.fillStyle=color;ctx.textAlign='center';ctx.font='700 10px system-ui';ctx.fillText('NEXT',preview.x,preview.y-preview.radius-12);ctx.restore();
       }
     }
-    if (game) for (const t of game.targets.targets) {
+    this.departingTargets=(this.departingTargets||[]).filter(t=>now-t.hitAt<280);
+    if (game) for (const t of [...game.targets.targets,...this.departingTargets]) {
       const color = t.id === 1 ? '#85d9c0' : '#ffb192', impact = impactAt(now - t.hitAt, t.intensity || 1, reduced);
       if (t.waiting && !impact.alpha) continue;
       const arrival = reduced || !game.targets.dynamic ? 1 : Math.min(1, Math.max(0, (now - (t.bornAt ?? now)) / 900));

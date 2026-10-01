@@ -5,6 +5,7 @@ export class MusicEngine {
   constructor(audio,getState) { this.audio=audio;this.getState=getState;this.step=0;this.timer=null;this.layer=0;this.cycle='BUILD';this.bpm=BASE_BPM;this.segments=[]; }
   start(seconds=0) {
     this.stop();const beats=seconds>0 && Number.isFinite(this.savedBeat)?this.savedBeat:seconds/beatSeconds;
+    if(seconds===0){this.lastDropToken=null;this.riseToken=null;this.riseEndsStep=null;this.dropStep=null;}
     this.step=Math.floor(beats*4);this.nextTime=this.audio.ctx.currentTime+.06;this.segments=[];
     this.capture(this.nextTime);this.tick();this.timer=setInterval(()=>this.tick(),25);
   }
@@ -12,16 +13,23 @@ export class MusicEngine {
     const ctx=this.audio.ctx;if(this.timer===null || !this.audio.ready || ctx?.state!=='running' || !this.segments.length)return null;
     const segment=[...this.segments].reverse().find(s=>s.at<=ctx.currentTime)||this.segments[0];
     const beats=Math.max(0,segment.beats+(ctx.currentTime-segment.at)*segment.bpm/60);
-    return {beats,bpm:segment.bpm,beatMs:60000/segment.bpm,seconds:beats*60/segment.bpm};
+    return {beats,bpm:segment.bpm,cycle:segment.cycle,token:segment.token,beatMs:60000/segment.bpm,seconds:beats*60/segment.bpm};
   }
   get clockSeconds() { const clock=this.clock;return clock?clock.beats*beatSeconds:null; }
   stop() { const clock=this.clock;if(clock)this.savedBeat=clock.beats;clearInterval(this.timer);this.timer=null; }
   capture(at) {
     const state=this.getState();this.layer=state.layer;this.cycle=state.cycle;this.feverLevel=state.feverLevel||1;
+    this.token=state.lastFeverEnergy ?? this.feverLevel;
+    if(this.cycle==='FEVER'&&this.token!==this.lastDropToken){
+      if(this.riseToken!==this.token){this.riseToken=this.token;this.riseEndsStep=this.step+(16-this.step%16);}
+      if(this.step<this.riseEndsStep)this.cycle='RISE';
+      else {this.lastDropToken=this.token;this.dropStep=this.step;}
+    }
     this.bpm=this.cycle==='FEVER'?feverStage(this.feverLevel).bpm:this.cycle==='REST'?REST_BPM:BASE_BPM;
-    if(!this.segments.length || this.segments.at(-1).bpm!==this.bpm)this.segments.push({at,beats:this.step/4,bpm:this.bpm});
+    if(!this.segments.length || this.segments.at(-1).bpm!==this.bpm || this.segments.at(-1).cycle!==this.cycle || this.segments.at(-1).token!==this.token)this.segments.push({at,beats:this.step/4,bpm:this.bpm,cycle:this.cycle,token:this.token});
     this.segments=this.segments.slice(-8);this.origin=at-this.step/4*60/this.bpm;
     this.audio.setMusicStyle?.(this.cycle,this.feverLevel,at);
+    if(this.cycle==='RISE')this.audio.setBuildUp?.(at,(this.riseEndsStep-this.step)*60/this.bpm/4);
   }
   tick() {
     const ctx=this.audio.ctx;if(!ctx || ctx.state!=='running')return;
@@ -36,6 +44,13 @@ export class MusicEngine {
   }
   schedule(step,t) {
     const s=step%16,bar=Math.floor(step/16),a=this.audio,rest=this.cycle==='REST';
+    if(this.cycle==='RISE') {
+      if(s%4===0)a.play('kick',t);
+      if(s%2===0)a.play('hat',t);
+      if(s<8?s%2===0:true)a.play('snare',t);
+      if(s%2===0||s>=12)a.play('pluck',t,[72,74,76,79,81,84,86,88][Math.floor(s/2)]);
+      return;
+    }
     if(this.cycle==='FEVER') {
       const level=feverStage(this.feverLevel).level,root=[48,45,40,43][bar%4];
       const kicks=level===2?[0,4,6,8,12,14]:level===4?[0,3,6,8,11,14]:[0,4,8,12];
@@ -43,7 +58,8 @@ export class MusicEngine {
       if(s===4||s===12)a.play(level>=4?'snare':'clap',t);
       if(s%(level>=2?1:2)===0)a.play('hat',t);
       if([6,14].includes(s))a.play('open-hat',t);
-      if(s===0&&bar%4===0)a.play('crash',t);
+      if(s===0&&(bar%4===0||step===this.dropStep))a.play('crash',t);
+      if(step===this.dropStep)for(const note of [72,76,79])a.play('rave',t,note);
       const bassSteps=level===1?[0,3,6,8,11,14]:level===2?[2,6,10,14]:level===4?[0,2,3,6,8,10,11,14]:[0,2,4,6,8,10,12,14];
       if(bassSteps.includes(s))a.play(level>=3?'acid-bass':'pulse-bass',t,root);
       const arps=[[72,76,79,84],[69,72,76,81],[64,67,74,76],[67,72,74,79]],arp=arps[bar%4];

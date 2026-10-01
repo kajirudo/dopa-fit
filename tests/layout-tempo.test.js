@@ -17,12 +17,12 @@ test('tempo changes exactly on the next unreserved bar, musical phase is continu
   let state={layer:5,cycle:'BUILD',feverLevel:0};const played=[],audio={ready:true,ctx:{state:'running',currentTime:0},play:(...v)=>played.push(v)};
   const engine=new MusicEngine(audio,()=>state);engine.start();
   try {
-    state={layer:5,cycle:'FEVER',feverLevel:5};const boundary=.06+16*60/112/4;
+    state={layer:5,cycle:'FEVER',feverLevel:5};const boundary=.06+32*60/112/4;
     for(let time=.04;time<boundary-.03;time+=.04){audio.ctx.currentTime=time;engine.tick();}
     const segment=engine.segments.at(-1);assert.equal(segment.bpm,160);assert.ok(Math.abs(segment.at-boundary)<1e-9);
     audio.ctx.currentTime=boundary-.001;assert.equal(engine.clock.bpm,112);const before=engine.clock.beats;
-    audio.ctx.currentTime=boundary;assert.equal(engine.clock.bpm,160);assert.equal(engine.clock.beats,4);assert.ok(engine.clock.beats-before<.01);
-    audio.ctx.currentTime=boundary+.375;assert.ok(Math.abs(engine.clock.beats-5)<1e-8);const saved=engine.clock.beats;
+    audio.ctx.currentTime=segment.at;assert.equal(engine.clock.bpm,160);assert.equal(engine.clock.beats,8);assert.ok(engine.clock.beats-before<.01);
+    audio.ctx.currentTime=boundary+.375;assert.ok(Math.abs(engine.clock.beats-9)<1e-8);const saved=engine.clock.beats;
     engine.stop();audio.ctx.currentTime=10;engine.start(100);audio.ctx.currentTime=10.06;
     assert.ok(Math.abs(engine.clock.beats-Math.floor(saved*4)/4)<1e-8);assert.equal(engine.clock.bpm,160);
     const club=played.filter(v=>v[0]==='club-kick');assert.ok(club.length>0);

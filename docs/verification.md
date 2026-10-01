@@ -4,7 +4,7 @@
 
 Windows、Node.js 22、Playwright 1.62.1／Chromium 151.0.7922.34。独立したlocalhostサーバー、偽カメラ、合成骨格とポインター入力。実写映像の保存はしていません。
 
-- Nodeロジック試験：53項目成功。rc.6で280ms演出の収束・軽減、低速接触と高速通過の等しい加点、追跡欠落時の通過抑制、静かな再配置と重なり抑制、身体の平行移動で演出を増幅しないことを追加。rc.7では8配置の収まり／範囲縮小、HIT→交互誘導→予告→拍で交換、片手／拍外の成功、到着時の重なり抑制、高さの変化とリスト上限、FEVER／REST、音声時計による視覚の拍と復旧を追加。
+- Nodeロジック試験：58項目成功。rc.6で280ms演出の収束・軽減、低速接触と高速通過の等しい加点、追跡欠落時の通過抑制、静かな再配置と重なり抑制、身体の平行移動で演出を増幅しないことを追加。rc.7では8配置の収まり／範囲縮小、HIT→交互誘導→予告→拍で交換、片手／拍外の成功、到着時の重なり抑制、高さの変化とリスト上限、FEVER／REST、音声時計による視覚の拍と復旧を追加。
 - ブラウザ試験：25項目成功。カメラステージが縦表示高の95%以上、最小HUD、設定の非表示、Pause内の音声復旧、FEVERのお祝い・累計HIT・粒子上限・演出軽減、再開時の成果保持、6か所以上の高さ・左右への連続HIT、予告の上限、範囲設定の保存と再開後の適用を含む。
 - 音声専用ブラウザ試験：Chromiumの6項目成功。開始、開始不能の模擬状態、復旧、音量0とミュート、音声中断→休憩→再開、Escapeで設定を閉じても休憩を維持してタップ再開。Windows版Playwright WebKit 26.5はWeb Audio APIがなく、390pxトップ画面とモジュール初期化だけを確認。WebKitの音声試験は未実行で、成功として数えない。Linux CIでもこの試験を実行し、環境ごとの結果をログへ残す。
 - PWA／fallback試験：4項目成功。別タブプレイ中の更新拒否、全タブ終了後の更新と旧キャッシュ削除、hash不一致の更新拒否、WebGL不可を模擬した単一thread WASM推論。
@@ -49,7 +49,7 @@ AppControllerのブラウザ試験でも、低い肩から上・中央への候�
 
 ## 再現方法
 
-`npm test`、`npm run audit:files`、`npm run test:browser`、`npm run test:pwa`、`npm run test:audio-browser`、`npm run test:music-render`、`npm run test:setup-browser`。最後の試験にはChromiumとWebKitのインストールが必要です。Web Audioのないエンジンは未実行として報告します。
+`npm test`、`npm run audit:files`、`npm run test:browser`、`npm run test:pwa`、`npm run test:audio-browser`、`npm run test:music-render`、`npm run test:setup-browser`、`npm run test:experience-browser`。最後の試験にはChromiumとWebKitのインストールが必要です。Web Audioのないエンジンは未実行として報告します。
 
 ブラウザ試験とPWA試験は自前の一時サーバーを起動します。PWA更新試験はOSの一時フォルダーに配布ファイルのコピーを作り、コピーだけに意図した変更・hash破損を加え、終了時にその一時フォルダーを削除します。作業リポジトリの配布物は変更しません。
 
@@ -63,8 +63,18 @@ GitHub公開：https://github.com/kajirudo/dopa-fit 。初回監査コミット 
 
 未ログインのChromiumから本番URLのブラウザ11項目を再実行し、すべて成功。CameraとローカルMoveNetの推論完了、合成骨格のHIT、デモのAudio／ENERGY／FEVER、カメラ停止、履歴、オフラインを確認しました。通信originは `https://dopa-fit.vercel.app` だけ、GETだけ、外部通信・アップロード・Console errorは0です。WASMのContent-Typeはapplication/wasm、モデルはapplication/json、HTTPS／CSP／Permissions-Policy／nosniffも確認。物理端末での試験の代用ではありません。
 
-公開候補のタグは `v0.1.0-rc.11`。実機ゲート未完了のため安定版・Release Readyとは扱いません。[rc.4の音声改善](audio-compatibility.md)、[rc.7の演出と改善案](experience-roadmap.md)。
+公開候補のタグは `v0.1.0-rc.12`。実機ゲート未完了のため安定版・Release Readyとは扱いません。[rc.4の音声改善](audio-compatibility.md)、[rc.7の演出と改善案](experience-roadmap.md)。
 
 最終監査でWASMのLLVM compiler-rt／libc++／libc++abiの条件・全文も追加しました。rc.2はこの追加表示を含む候補で、rc.1を置き換えました。ライブラリのバイトは変更していません。最終候補rc.3で音階をすべてCメジャーペンタトニックへ統一し、映像上端のターゲット配置もキャリブレーションで検証するようにしました。
 
 rc.10本番確認：キャッシュ `8f3590e52607bf8d` の全61配布ファイル（8,195,659 bytes）のhash一致、未ログインの本番ブラウザ25項目、Chromiumの音声復旧6項目、7種のPCM生成を確認。通信先は本番同一originのみ、GETだけ、Console error・外部通信・本文付き送信0。実機確認は別ゲートです。
+
+## rc.12の追加検証
+
+Node58項目成功。左右導入の新しい接触と保持の抑制、2HIT後の成果保持と通常範囲復帰、10秒終了とスキップ、FEVERごとの1小節RISE・和音ドロップ・最高段階の繰り返し・タメ中再開、旧履歴と不正値を含む成果集計を確認。
+
+体験専用ブラウザ9項目成功：左右HITで早期終了、音声時計のRISE→FEVERと演出の一度だけの突入、運動時間を突入から数えること、最高FEVER・HIT・時間の履歴と720×900 PNG、日英画像・320pxダイアログ、再プレイの新しい成果と音声開始、Pause後の練習維持、10秒切替、スキップ、外部通信・集計送信・script errorなし。日本語／英語カードを画像で目視確認。入力と経過時間は合成で、カメラ写真は使用していない。
+
+既存ブラウザ25項目、準備／言語9項目、PWA更新／WASM4項目、Chromium音声復旧6項目も成功。Windows WebKitはWeb Audio未提供で音声未実行。通常・ひと息・5段階の7種を実際の合成器／予約器でPCM生成し、タメ込みですべて非無音・クリッピングなし・終了後voice0、最大15voice／48AudioNode。配布65ファイル8,234,167 bytes（約7.85MiB）は8MiB予算内。
+
+新機能の実機iPhone／Androidの音・体感・PNG保存・長時間評価は未完了。公開候補として扱い、Release Readyとは判定しない。

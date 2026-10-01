@@ -35,7 +35,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     await page.screenshot({path:path.join(root,'test-results/mobile.png'),fullPage:true}); check('Landing and 390px portrait layout');
     await page.locator('#body-mode').selectOption('full');assert.equal(await page.evaluate(()=>window.testApp.bodyMode),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'contain');
     await page.locator('#body-mode').selectOption('upper');assert.equal(await page.locator('#camera-fit').inputValue(),'cover');check('Upper / full-body modes selectable before START with suitable camera framing');
-    await page.locator('#demo').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING');
+    await page.locator('#demo').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING');await page.locator('#practice-skip').click();
     assert.equal(await page.evaluate(()=>window.testApp.audio.ready),true);
     // Free movement receives a softer note even when it never enters a circle.
     const wave = await page.evaluate(() => {
@@ -84,6 +84,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.equal(capturedFever,true);
     assert.ok(destinations.size>=6);assert.equal(await page.evaluate(()=>window.testApp.game.targets.positions.length),8);
     check('Alternating target flow uses varied heights with a bounded incoming preview');
+    await page.waitForFunction(()=>window.testApp.game.presentationCycle==='FEVER'&&window.testApp.lastCue?.kind==='fever');
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('fever')),true);
     assert.equal(await page.locator('#rally-count').textContent(),String(rewards.hits));
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
@@ -91,8 +92,8 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     for(let level=2;level<=5;level++) {
       await page.evaluate(async()=>{const a=window.testApp,e=a.game.energy;
         // Synthetic time advances test all five stages without claiming a physical session.
-        e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+e.feverDuration;e.tick(a.seconds,0);const calm=a.feedbackDirector.update(e);if(calm)a.celebrate(calm,performance.now());
-        a.seconds=e.phaseAt+e.restDuration;e.tick(a.seconds,0);const cue=a.feedbackDirector.update(e);if(cue)a.celebrate(cue,performance.now());a.updateUI(performance.now());});
+        e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+e.feverDuration;e.tick(a.seconds,0);a.game.presentationCycle='REST';const calm=a.feedbackDirector.update(a.feedbackState);if(calm)a.celebrate(calm,performance.now());
+        a.seconds=e.phaseAt+e.restDuration;e.tick(a.seconds,0);a.updateUI(performance.now());});
       await page.waitForFunction(level=>window.testApp.game.energy.feverLevel===level&&window.testApp.music.feverLevel===level,level,{timeout:4000});
       // Audio advances independently; allow the next animation frame to observe it.
       await page.waitForFunction(bpm=>window.testApp.music.clock?.bpm===bpm&&window.testApp.game.targets.beatMs===60000/bpm,[120,128,138,148,160][level-1]);

@@ -58,7 +58,7 @@ WASMはWebGL失敗時のみ起動します。PWAの初回バックグラウン�
 - [x] model.json・重み・WASMの出所とライセンスを記録
 - [x] 映像・骨格・利用統計のアップロード実装なし
 - [x] クリーンなmainの取得・CI成功
-- [x] GitHub一般公開。候補タグ `v0.1.0-rc.11`（日本語／英語、分かりやすい準備案内）
+- [x] GitHub一般公開。候補タグ `v0.1.0-rc.12`（短い練習、FEVERのタメと同期、成果カード）
 - [x] GitHub main → Vercel連携でProduction配信を確認
 - [ ] 本番HTTPS → START → Camera → Pose → HIT → Audio → ENERGY／FEVER → 終了・再開をiPhone／Androidで確認
 - [x] 未ログインDesktop Chromiumで本番の通信・Console確認
@@ -67,3 +67,12 @@ WASMはWebGL失敗時のみ起動します。PWAの初回バックグラウン�
 すべての受入項目が確認できるまでRelease Readyのタグは付けません。公開候補タグは安定版と区別します。
 
 公開候補URL：https://dopa-fit.vercel.app/ 。コード・受入状況をGitHubで公開し、実機確認は引き続き未完了として扱います。
+
+## rc.12 実機の追加受入
+
+- [ ] 左右練習が説明なしで分かる。両HIT／10秒／スキップから通常プレイへ。
+- [ ] 各FEVERのタメと音・光の突入が気持ちよく感じられ、HITが遅れない。
+- [ ] iPhone Safari／Android Chromeで成果PNGを保存できる。
+- [ ] 最高FEVER・HIT・時間が一致し、再プレイの音が出る。
+
+新機能の自動検証は実機での聴こえ方・保存UIの確認を代替しません。

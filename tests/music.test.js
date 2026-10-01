@@ -25,7 +25,7 @@ test('new instrument layers are captured at bar boundaries without changing rese
  engine.tick();assert.equal(engine.layer,0);state={layer:5,cycle:'FEVER'};
  audio.ctx.currentTime=.15;engine.tick();assert.equal(engine.layer,0);
  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/112/4;engine.tick();}
- assert.equal(engine.layer,5);assert.equal(engine.cycle,'FEVER');
+ assert.equal(engine.layer,5);assert.equal(engine.cycle,'RISE');
 });
 test('FEVER adds melodic motion and bass while the calm section keeps kick and unlocked layers', () => {
  const played=[],engine=new MusicEngine({play:(kind,time,note)=>played.push({kind,time,note})},()=>({}));engine.layer=5;

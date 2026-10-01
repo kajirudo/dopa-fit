@@ -8,7 +8,7 @@
 
 ![Dopa Fitの応援ロボット](assets/characters/idle.png)
 
-現在は**公開候補版**です。Androidで音と手振りが動作し、音声改善後にはiPhoneでも音が出たとの利用者報告があります。rc.9の半身モードと5段階の視覚演出も利用者確認済みです。rc.10では配置と可変テンポ音楽を改善。rc.11では日本語／英語の切替と、肩・両手・腰の認識状況を見ながら準備できる案内を追加しました。新しい音楽・配置・準備案内の実機評価、機種／OSの特定、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。
+現在は**公開候補版**です。Androidで音と手振りが動作し、音声改善後にはiPhoneでも音が出たとの利用者報告があります。rc.9の半身モードと5段階の視覚演出も利用者確認済みです。rc.10では配置と可変テンポ音楽を改善。rc.11では日本語／英語の切替と、肩・両手・腰の認識状況を見ながら準備できる案内を追加しました。rc.12では最長10秒の練習、FEVER前のタメと音楽に同期した突入、保存できる成果カードを追加しました。新しい音楽・配置・準備案内・成果画像保存の実機評価、機種／OSの特定、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。
 
 ## Concept
 
@@ -28,22 +28,23 @@ Movement creates reward. 身体を動かすほど音楽の編成と光の演出�
 
 Instructions, setup, settings, results and privacy are available in Japanese and English. Your device’s preferred language sets the initial choice. Use the language selector to change it; your choice is saved only on your device.
 
-**Quick start:** stand your phone upright → Start → allow camera → show shoulders and both hands in front of your chest → wait for the checks and countdown → reach for glowing targets with either hand. Upper body works seated or standing; Full body also needs visible hips. You can switch modes during setup. Match the example pose loosely; precise alignment is not required.
+**Quick start:** stand your phone upright → Start → allow camera → show shoulders and both hands in front of your chest → wait for the checks and countdown → try the left and right glowing targets (up to 10 seconds, skippable) → reach for targets with either hand. Upper body works seated or standing; Full body also needs visible hips. You can switch modes during setup. Match the example pose loosely; precise alignment is not required.
 
 ## How to Play
 
 1. スマートフォンを安定した場所に立て、縦画面でDopa Fitを開く。「遊び方」で半身／全身を選ぶ。
 2. START MOVINGを押し、カメラを許可する。
 3. 半身では両手を胸の前へ。全身では肩・両手・腰が映る位置へ。3秒の準備を待つ。
-4. GOのターゲットへ、好きな手をゆっくり伸ばす。光る側とNEXTを追うと左右交互に動けます。別のターゲットに触れても成功です。速さ・方向・拍の正確さは必要ありません。
+4. 最初は左→右の大きなターゲットで練習。両方に触れたら通常プレイへ進み、触れなくても10秒で切り替わります。スキップも可能で、練習中のHITも加算します。通常プレイはGOのターゲットへ、好きな手をゆっくり伸ばす。光る側とNEXTを追うと左右交互に動けます。別のターゲットに触れても成功です。速さ・方向・拍の正確さは必要ありません。
 5. 手の動きでビートを育てる。100 ENERGYごとにFEVERがSPARK → GROOVE → RUSH → HYPER → SUPERNOVAと育つ。
 6. ひと息つきたいときはPause。音量や演出を設定し、「また動こう」で再開。成果はそのまま。
+7. 終了すると最高FEVER・HIT・ENERGY・運動時間の成果カード。「画像で保存」でPNGを保存し、「もう一回」で新しいセッションを始められます。写真はカードに含みません。
 
 半身モードは近くでのリーチや座ったままの手の動きに向けた設定です。肩幅が大きくてもターゲットを画面内の届く範囲へ収め、腰の認識を要求しません。カメラ映像全体から推論して、画面いっぱい表示の切り抜き外にある肩・肘も体格の基準に使います。手の初期認識は見えている範囲で行います。約60cmでの実機動作は未確認で、端末の画角により両手が入る距離・角度の調整が必要です。胸の前で動かし、映りづらい場合はPauseの「カメラ表示 → 広く映す」を選べます。
 
 全身モードはカメラ表示を「広く映す」に切り替え、腰まで認識できる配置で開始します。ステップ・上下動も加点対象。半身の3分コースは手と腕の案内にし、腰の運動を加点しません。START前またはPauseで切り替えられ、セッション内のENERGY・FEVER段階は再開時にも保持します。iPhoneではSafariの共有メニューから「ホーム画面に追加」し、追加したアイコンから開くとブラウザのバーがない広い画面で遊べます。
 
-FEVERは5段階。通常112 BPMから、SPARK 120 → GROOVE 128 → RUSH 138 → HYPER 148 → SUPERNOVA 160 BPMへ加速します。SPARKは四つ打ちと明るいシンセ、GROOVEは細かいハットと跳ねるリズム、RUSHは共鳴するベースと16分音符のリード、HYPERはシンコペーションと厚い和音、SUPERNOVAは高速リードと和音を組み合わせます。4小節のコード進行も独自合成です。テンポ・編成は次の未予約の小節頭で切り替え、HIT音は即時。ターゲットと光も実際の拍に追従します。同時発音24／AudioNode160／粒子240の上限を共有。FEVERは段階のテンポで8小節相当（約12〜16秒）、ひと息は100 BPMで4小節相当。状態遷移と音楽の切替には小節頭までの差があります。余分なENERGYは繰り越し、最高段階でもSUPERNOVAを繰り返せます。録音・追加の第三者音源は使用しません。
+FEVERは5段階。通常112 BPMから、SPARK 120 → GROOVE 128 → RUSH 138 → HYPER 148 → SUPERNOVA 160 BPMへ加速します。SPARKは四つ打ちと明るいシンセ、GROOVEは細かいハットと跳ねるリズム、RUSHは共鳴するベースと16分音符のリード、HYPERはシンコペーションと厚い和音、SUPERNOVAは高速リードと和音を組み合わせます。4小節のコード進行も独自合成です。FEVERは次の未予約小節から1小節のタメ（上昇シンセ、細かくなるスネア、BGMの絞り込み）に入り、続く小節頭でテンポ・ドラム・ベース・和音が一気に展開。光の拡散と紙吹雪もその音声時刻に同期します。HIT音は即時。ターゲットと光も実際の拍に追従します。同時発音24／AudioNode160／粒子240の上限を共有。FEVERは段階のテンポで8小節相当（約12〜16秒）、ひと息は100 BPMで4小節相当。FEVERの残り時間は実際の突入から数えます。ひと息の音楽切替は次の小節頭です。余分なENERGYは繰り越し、最高段階でもSUPERNOVAを繰り返せます。録音・追加の第三者音源は使用しません。
 
 手首から肘と反対の方向へ少し補正した位置に、半径20〜40pxの手の周辺判定を設けています。大きくしたターゲットに周辺の円が重なればHIT。手首の信頼度はHITだけ0.3以上で拾い、運動の回数・MOVEでは従来の条件を維持します。認識が欠けたときは表示を最大320ms保ち、直前の肘が追えている場合だけ最大220ms動きを補助します。表示の保持だけで加点せず、長い追跡欠落・新しいターゲットへの重なり・手を置き続ける動作で連打しません。
 
@@ -114,3 +115,5 @@ VercelでGitHub `kajirudo/dopa-fit`をImportし、チーム`kajirudos-projects`�
 PWAインストールは任意。キャッシュ保存完了後はオフラインでも動作します。更新は全タブで運動を終えて適用します。静的ファイル変更後は必ず`npm run audit:files`でキャッシュのハッシュを再生成してください。
 
 準備画面：映像をぼかさず、姿勢の例・認識チェック・安定待ちの進捗・足りない部位への短い案内を表示します。両手は一度ずつ見せ、肩の位置が約0.75秒安定すると3秒のカウントダウンへ進みます。全身は腰も必要。準備中に半身へ変更でき、準備画面を閉じて設定へ戻る必要はありません。シルエットに正確に合わせる必要はなく、判定条件とHITの成功扱いは維持します。
+
+導入・FEVER同期・成果PNG・再プレイは `npm run test:experience-browser` で検証します。

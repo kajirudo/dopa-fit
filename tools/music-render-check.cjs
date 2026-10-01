@@ -14,7 +14,7 @@ const root=path.resolve(__dirname,'..');
       const {AudioManager}=await import('./src/audio.js'),{MusicEngine}=await import('./src/music.js'),{FEVER_STAGES}=await import('./src/fever.js');
       const results=[];
       for(const profile of [{name:'BUILD',bpm:112},{name:'REST',bpm:100},...FEVER_STAGES]) {
-        const cycle=profile.level?'FEVER':profile.name,seconds=8*60/profile.bpm+1,sampleRate=22050;
+        const cycle=profile.level?'FEVER':profile.name,seconds=(profile.level?4*60/112:0)+8*60/profile.bpm+1,sampleRate=22050;
         const offline=new OfflineAudioContext(1,Math.ceil(seconds*sampleRate),sampleRate);
         // Offline rendering is suspended for scheduled ticks. Treat those ticks
         // like a running real-time context; all nodes and signals remain real.
@@ -22,7 +22,7 @@ const root=path.resolve(__dirname,'..');
         const audio=new AudioManager({createContext:()=>proxy,getSession:()=>null,timeoutMs:100});const unlock=audio.unlock();
         let seed=42;for(let i=0,data=audio.noise.getChannelData(0);i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;data[i]=seed/2147483648-1;}
         const engine=new MusicEngine(audio,()=>({layer:5,cycle,feverLevel:profile.level||1})),schedule=engine.schedule.bind(engine);
-        engine.schedule=(step,time)=>{if(step<32)schedule(step,time);};engine.start();clearInterval(engine.timer);
+        engine.schedule=(step,time)=>{if(step<(profile.level?48:32))schedule(step,time);};engine.start();clearInterval(engine.timer);
         let maxVoices=audio.voices.size,maxNodes=audio.nodeCount,pause=offline.suspend(.04);
         const rendering=offline.startRendering();
         for(let time=.04;time<seconds-.1;time+=.04){await pause;engine.tick();maxVoices=Math.max(maxVoices,audio.voices.size);maxNodes=Math.max(maxNodes,audio.nodeCount);pause=time+.04<seconds-.1?offline.suspend(time+.04):null;await offline.resume();if(!pause)break;}

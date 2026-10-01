@@ -38,7 +38,7 @@ test('new FEVER level enters the music on a bar boundary and persists through th
   let state={layer:5,cycle:'FEVER',feverLevel:1};const audio={ctx:{currentTime:0,state:'running'},play(){}};
   const engine=new MusicEngine(audio,()=>state);engine.nextTime=.06;engine.tick();assert.equal(engine.feverLevel,1);
   state={...state,feverLevel:5};audio.ctx.currentTime=.15;engine.tick();assert.equal(engine.feverLevel,1);
-  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/FEVER_STAGES[0].bpm/4;engine.tick();}assert.equal(engine.feverLevel,5);
+  for(let i=2;i<=16;i++){audio.ctx.currentTime=i*60/112/4;engine.tick();}assert.equal(engine.feverLevel,5);
   engine.cycle='REST';const voices=[];engine.audio.play=(kind)=>voices.push(kind);for(let i=0;i<16;i++)engine.schedule(i,i*.134);
   assert.ok(!voices.includes('synth')&&!voices.includes('melody'));assert.equal(engine.feverLevel,5);
 });
