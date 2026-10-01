@@ -94,7 +94,8 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
         e.energy=Math.max(e.energy,e.lastFeverEnergy+100);a.seconds=e.phaseAt+e.feverDuration;e.tick(a.seconds,0);const calm=a.feedbackDirector.update(e);if(calm)a.celebrate(calm,performance.now());
         a.seconds=e.phaseAt+e.restDuration;e.tick(a.seconds,0);const cue=a.feedbackDirector.update(e);if(cue)a.celebrate(cue,performance.now());a.updateUI(performance.now());});
       await page.waitForFunction(level=>window.testApp.game.energy.feverLevel===level&&window.testApp.music.feverLevel===level,level,{timeout:4000});
-      await page.waitForFunction(bpm=>window.testApp.music.clock?.bpm===bpm,[120,128,138,148,160][level-1]);
+      // Audio advances independently; allow the next animation frame to observe it.
+      await page.waitForFunction(bpm=>window.testApp.music.clock?.bpm===bpm&&window.testApp.game.targets.beatMs===60000/bpm,[120,128,138,148,160][level-1]);
       assert.equal(await page.evaluate(()=>window.testApp.game.targets.beatMs),60000/[120,128,138,148,160][level-1]);
       assert.ok((await page.locator('#cycle').textContent()).includes(`${level}/5`));
       assert.equal(await page.locator('#fever-levels .on').count(),level);
