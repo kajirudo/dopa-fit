@@ -57,12 +57,18 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     assert.ok((await page.locator('#stage').boundingBox()).height>=844*.95);
     for(const id of ['audio-retry','volume','layers','finish'])assert.equal(await page.locator('#'+id).isVisible(),false);
     check('Full-height camera stage and minimal ENERGY / unlocked sound / Pause HUD');
-    const hit = async()=>{
-      const t=await page.evaluate(()=>({...window.testApp.game.targets.targets[0]})), box=await page.locator('#canvas').boundingBox();
-      await page.mouse.move(box.x+195,box.y+Math.min(400,box.height-30)); await page.waitForTimeout(60);
-      await page.mouse.move(box.x+t.x,box.y+t.y); await page.waitForTimeout(410);
+    const destinations = new Set();
+    const hit = async(capture=false)=>{
+      const box=await page.locator('#canvas').boundingBox(), c=await page.evaluate(()=>window.testApp.game.calibration);
+      await page.mouse.move(box.x+c.center.x,box.y+Math.min(c.center.y+c.shoulder*1.8,box.height-20)); await page.waitForTimeout(60);
+      await page.waitForFunction(()=>window.testApp.game.targets.active.length>0);
+      const t=await page.evaluate(()=>{const m=window.testApp.game.targets;return{...(m.active.find(t=>t.id===m.leadId)||m.active[0])};});
+      destinations.add(`${t.id}:${t.height}`);
+      await page.mouse.move(box.x+t.x,box.y+t.y);
+      if(capture){await page.waitForTimeout(40);await page.screenshot({path:path.join(root,'test-results/target-flow.png')});}
+      await page.waitForTimeout(410);
     };
-    await hit(); const first=await page.evaluate(()=>window.testApp.game.energy.hits);
+    await hit(true); const first=await page.evaluate(()=>window.testApp.game.energy.hits);
     await page.waitForTimeout(550); assert.equal(await page.evaluate(()=>window.testApp.game.energy.hits),first); check('Holding target never repeats a HIT');
     let capturedFever=false;
     for(let i=0;i<21;i++){
@@ -74,17 +80,24 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     const rewards=await page.evaluate(()=>({energy:window.testApp.game.energy.energy,hits:window.testApp.game.energy.hits,cycle:window.testApp.game.energy.cycle,layer:window.testApp.game.energy.layer,audio:window.testApp.audio.ctx.state}));
     assert.ok(rewards.energy>=100); assert.equal(rewards.layer,5); assert.equal(rewards.cycle,'FEVER'); assert.equal(rewards.audio,'running'); check('Pointer → HIT → audio → ENERGY → FEVER');
     assert.equal(capturedFever,true);
+    assert.ok(destinations.size>=6);assert.equal(await page.evaluate(()=>window.testApp.game.targets.positions.length),8);
+    check('Alternating target flow uses varied heights with a bounded incoming preview');
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('fever')),true);
     assert.equal(await page.locator('#rally-count').textContent(),String(rewards.hits));
     const effects=await page.evaluate(()=>({cue:window.testApp.lastCue?.kind,parts:window.testApp.renderer.particles.parts.length,limit:window.testApp.renderer.particles.limit}));
     assert.equal(effects.cue,'fever');assert.ok(effects.parts<=240&&effects.limit<=240);
     await page.locator('#pause').click();
+    await page.locator('#reach').selectOption('small');
+    await page.screenshot({path:path.join(root,'test-results/settings.png')});
     await page.locator('#reduced').check();
     assert.equal(await page.evaluate(()=>window.testApp.renderer.particles.parts.length),0);
     assert.equal(await page.locator('#play').evaluate(el=>el.classList.contains('reduced-effects')),true);
     await page.locator('#reduced').uncheck();check('FEVER celebration / cumulative HITS / bounded effects / immediate motion reduction');
     assert.equal(await state(),'PAUSED');
     await page.locator('#settings-close').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING'); assert.ok(await page.evaluate(()=>window.testApp.game.energy.energy)>=rewards.energy); check('Pause / recalibrate / resume preserves ENERGY');
+    assert.equal(await page.evaluate(()=>window.testApp.store.read('settings',{}).reach),'small');
+    assert.ok(await page.evaluate(()=>window.testApp.game.targets.positions.filter(p=>p.lane===0).every(p=>p.x>window.testApp.game.calibration.center.x-window.testApp.game.calibration.shoulder*.7)));
+    check('Compact reach persists and applies on resume without losing ENERGY');
     const voiceStats=await page.evaluate(async()=>{const a=window.testApp.audio;for(let i=0;i<100;i++)a.hit(i);const peak={voices:a.voices.size,nodes:a.nodeCount};window.testApp.music.stop();await new Promise(r=>setTimeout(r,700));return{...peak,after:a.voices.size};});
     assert.ok(voiceStats.voices<=24&&voiceStats.nodes<=160);assert.equal(voiceStats.after,0);results.voiceStats=voiceStats;check('Audio cap and complete node cleanup');
     await page.locator('#pause').click();await page.locator('#finish').click(); await page.locator('#result').waitFor();

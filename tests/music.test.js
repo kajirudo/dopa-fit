@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MusicEngine } from '../src/music.js';
+test('visual rhythm follows scheduled audio time after resume and scheduler recovery', () => {
+ const played=[],audio={ready:true,ctx:{state:'running',currentTime:10},play:(kind,time)=>played.push({kind,time})};
+ const engine=new MusicEngine(audio,()=>({layer:0,cycle:'BUILD'}));engine.start(5.31);
+ try {
+  audio.ctx.currentTime=engine.origin+10*(60/112);
+  assert.ok(Math.abs(engine.clockSeconds-10*(60/112))<1e-9);
+  audio.ctx.currentTime=100;engine.tick();
+  const kick=played.filter(p=>p.kind==='kick').at(-1);
+  audio.ctx.currentTime=kick.time;
+  assert.ok(Math.abs(engine.clockSeconds/(60/112)-Math.round(engine.clockSeconds/(60/112)))<1e-9);
+  audio.ready=false;assert.equal(engine.clockSeconds,null);
+ }finally{engine.stop();}assert.equal(engine.clockSeconds,null);
+});
 test('all melodic and bass voices use finite C major pentatonic pitches', () => {
  const played=[],engine=new MusicEngine({play:(kind,time,note)=>played.push({kind,time,note})},()=>({}));engine.layer=5;engine.cycle='FEVER';
  for(let step=0;step<128;step++)engine.schedule(step,step*60/112/4);

@@ -44,6 +44,8 @@ export class AppController {
     $('mute').onclick = () => { this.audio.setMuted(!this.audio.muted); if (!this.audio.muted) this.retryAudio(); this.updateAudio(); this.saveSettings(); };
     $('audio-retry').onclick = () => this.retryAudio();
     const settings = this.store.read('settings', {});
+    $('reach').value = settings.reach === 'small' ? 'small' : 'wide';
+    $('reach').onchange = () => this.saveSettings();
     $('volume').value = Math.min(100, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 55)); this.audio.volume = Number($('volume').value) / 100;
     $('volume').oninput = () => { this.audio.setVolume(Number($('volume').value) / 100); this.updateAudio(); this.saveSettings(); };
     $('reduced').checked = settings.reduced ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -56,7 +58,7 @@ export class AppController {
     $('canvas').addEventListener('pointerup', () => { if (this.demo) this.pointer = null; });
     $('canvas').addEventListener('pointercancel', () => { this.pointer = null; });
   }
-  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked }); }
+  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
     $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
@@ -107,7 +109,7 @@ export class AppController {
     this.message(messages[error.name] || error.message || '準備できませんでした。再開して試してください', true);
   }
   beginCalibration() {
-    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? '丸へ触れて、音をつくろう' : '肩と両手が映る位置に立ってね');
+    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? 'GOへ触れて、音をつくろう' : '肩と両手が映る位置に立ってね');
     if (this.demo) {
       const w = this.renderer.width, h = this.renderer.height;
       this.acceptCalibration({ center: { x: w / 2, y: h * .46 }, shoulder: w * .28, rect: { x: 0, y: 0, width: w, height: h } });
@@ -116,7 +118,7 @@ export class AppController {
   }
   acceptCalibration(calibration) {
     const previous = this.game?.energy;
-    this.game = new GameEngine(calibration, this.phase); if (previous) this.game.energy = previous;
+    this.game = new GameEngine(calibration, this.phase, $('reach').value); if (previous) this.game.energy = previous;
     this.state = 'COUNTDOWN'; this.countdownAt = performance.now();
   }
   animate() {
@@ -129,8 +131,8 @@ export class AppController {
       else { this.state = 'PLAYING'; $('stage-scrim').classList.add('hidden'); if (this.phase >= 2) this.music.start(this.seconds); }
     }
     if (this.state === 'PLAYING') {
-      this.game.targets.advance(now);
       this.seconds += dt; this.game.energy.tick(this.seconds, dt, this.phase >= 3);
+      this.game.targets.advance(now, this.music.clockSeconds ?? this.seconds, this.game.energy.cycle);
       if (now - this.game.movement.lastMotion < 500) this.game.energy.flow += dt;
       if (this.course && this.seconds >= 180) { this.finish(); return; }
     }
@@ -143,7 +145,7 @@ export class AppController {
       const cue = this.feedbackDirector.update(this.game.energy);
       if (cue) this.celebrate(cue, now);
     }
-    this.renderer.draw(this.mapped, this.game, now, dt, this.seconds); this.updateUI(now);
+    this.renderer.draw(this.mapped, this.game, now, dt, this.music.clockSeconds ?? this.seconds); this.updateUI(now);
     this.raf = requestAnimationFrame(() => this.animate());
   }
   processFrame(frame) {

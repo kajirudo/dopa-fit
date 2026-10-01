@@ -36,9 +36,11 @@ test('a tracking gap cannot become a swept HIT', () => {
 test('targets cycle quietly without a pose and never hit a hand already overlapping the new target', () => {
   const targets = new TargetManager(calibration, true), t = targets.targets[0];
   targets.advance(0); const radius = t.radius;
-  targets.advance(4601); assert.equal(t.bornAt, 4601); assert.equal(t.radius, radius);
-  assert.equal(targets.process(pose(t.x, t.y, 1, 4602), 4602).length, 0);
-  assert.equal(targets.process(pose(t.x, t.y, 2, 4700), 4700).length, 0);
+  targets.advance(4601); assert.equal(t.waiting, true); assert.equal(t.radius, radius);
+  const arrival = t.relocateAt; targets.advance(arrival);
+  assert.equal(t.bornAt, arrival);
+  assert.equal(targets.process(pose(t.x, t.y, 1, arrival + 1), arrival + 1).length, 0);
+  assert.equal(targets.process(pose(t.x, t.y, 2, arrival + 50), arrival + 50).length, 0);
 });
 test('body translation does not increase impact intensity', () => {
   const targets = new TargetManager(calibration), t = targets.targets[0];

@@ -3,6 +3,19 @@ import { clamp, distance } from './coordinates.js';
 export const LAYERS = ['Kick', 'Hi-hat', 'Snare', 'Bass', 'Synth', 'Melody'];
 export const THRESHOLDS = [0, 10, 25, 45, 70, 100];
 export const BAR_SECONDS = 60 / 112 * 4;
+export const BEAT_MS = 60 / 112 * 1000;
+// Four heights on each side. These are destinations, not eight simultaneous targets.
+export function targetPositions(calibration, reach = 'wide') {
+  const { center: c, shoulder: s, rect } = calibration, radius = clamp(.28 * s, 24, 44);
+  const scale = reach === 'small' ? .68 : 1, positions = [];
+  for (const side of [-1, 1]) for (const [height, offset] of [-.75, -.1, .55, 1.15].entries()) {
+    const point = { lane: side < 0 ? 0 : 1, height, radius,
+      x: clamp(c.x + side * [.75, .9, .85, .65][height] * s * scale, rect.x + radius + 8, rect.x + rect.width - radius - 8),
+      y: clamp(c.y + offset * s * scale, rect.y + radius + 8, rect.y + rect.height - radius - 8) };
+    if (!positions.some(p => p.lane === point.lane && distance(p, point) < radius * 1.25)) positions.push(point);
+  }
+  return positions;
+}
 export function segmentDistance(point, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y, length = dx * dx + dy * dy;
   const t = length ? clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / length, 0, 1) : 0;
@@ -10,36 +23,55 @@ export function segmentDistance(point, a, b) {
 }
 export const hitIntensity = speed => 1 + clamp(((Number.isFinite(speed) ? speed : 0) - .8) / 5, 0, 1) * .35;
 export class TargetManager {
-  constructor(calibration, top = false) {
+  constructor(calibration, flow = false, reach = 'wide') {
     this.calibration = calibration;
-    this.dynamic = top;
+    this.dynamic = flow;
     this.targets = [];
     this.previous = {};
-    this.place(top);
+    this.positions = targetPositions(calibration, reach); this.leadId = 0; this.cycle = 'BUILD';
+    this.place();
   }
-  place(top = false) {
-    const { center: c, shoulder: s, rect } = this.calibration;
+  place() {
+    const { center: c, shoulder: s } = this.calibration;
     const radius = clamp(.28 * s, 24, 44);
     this.targets = [-1, 1].map((side, index) => ({ id: index, x: c.x + side * .9 * s, y: c.y + .25 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
-    if (top && c.y - .8 * s - radius > rect.y + 8) this.targets.push({ id: 2, x: c.x, y: c.y - .8 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity });
-    for (const target of this.targets) { target.home = {x:target.x,y:target.y}; target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
+    if (this.dynamic) for (const target of this.targets) Object.assign(target, this.destination(target.id, 0));
+    for (const target of this.targets) { target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
   }
   resetArms() { for (const t of this.targets) t.arms = {}; this.previous = {}; }
-  advance(now) {
+  destination(lane, visit) {
+    const patterns = this.cycle === 'REST' ? [[1, 2], [1, 2]] : this.cycle === 'FEVER' ? [[0, 2, 1, 3], [2, 0, 3, 1]] : [[1, 0, 2, 3], [1, 0, 2, 3]];
+    const height = patterns[lane][visit % patterns[lane].length];
+    const candidates = this.positions.filter(p => p.lane === lane);
+    return candidates.find(p => p.height === height) || candidates.reduce((a, b) => Math.abs(b.height - height) < Math.abs(a.height - height) ? b : a);
+  }
+  get active() { return this.targets.filter(t => !t.waiting); }
+  get preview() { return this.targets.filter(t => t.waiting).sort((a, b) => a.relocateAt - b.relocateAt)[0]?.next || null; }
+  planNext(target, now) {
+    target.waiting = true; target.arms = {};
+    const earliest = now + 350;
+    target.relocateAt = this.beatOrigin + Math.ceil((earliest - this.beatOrigin) / BEAT_MS) * BEAT_MS;
+    target.next = { ...this.destination(target.id, ++target.visits), bornAt: now, arrivesAt: target.relocateAt };
+    this.leadId = 1 - target.id;
+  }
+  advance(now, seconds, cycle = this.cycle) {
+    this.cycle = cycle; this.beatOrigin ??= now;
+    if (Number.isFinite(seconds)) this.beatOrigin = now - seconds * 1000;
     for (const target of this.targets) {
-      if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 4600 + target.id * 220 : Infinity; }
-      if ((target.relocateAt && now >= target.relocateAt) || now >= target.expiresAt) {
-        const {rect,shoulder:s} = this.calibration, offsets = [[0,-.12],[0,.12],[.08,0],[0,0]], offset = offsets[target.visits++ % offsets.length];
-        target.x = clamp(target.home.x + offset[0]*s, rect.x+target.radius+8, rect.x+rect.width-target.radius-8);
-        target.y = clamp(target.home.y + offset[1]*s, rect.y+target.radius+8, rect.y+rect.height-target.radius-8);
-        target.arms = {}; target.relocateAt = 0; target.bornAt = now; target.expiresAt = now + 4600 + target.id * 220;
+      if (target.bornAt === null) { target.bornAt = now; target.expiresAt = this.dynamic ? now + 8 * BEAT_MS : Infinity; }
+      if (target.waiting && now >= target.relocateAt) {
+        Object.assign(target, target.next); target.next = null; target.waiting = false;
+        target.arms = {}; target.relocateAt = 0; target.bornAt = now; target.hitAt = -Infinity;
+        target.expiresAt = now + (this.cycle === 'REST' ? 12 : 8) * BEAT_MS;
       }
+      if (this.dynamic && !target.waiting && now >= target.expiresAt) this.planNext(target, now);
     }
   }
   process(pose, now) {
     this.advance(now);
     const hits = [];
     for (const target of this.targets) {
+      if (target.waiting) continue;
       for (const name of ['left_wrist', 'right_wrist']) {
         const p = pose.points[name];
         if (!p?.valid) { target.arms[name] = false; delete this.previous[name]; continue; }
@@ -51,7 +83,7 @@ export class TargetManager {
           target.arms[name] = false;
           if (now < target.readyAt) continue;
           target.readyAt = now + 350;
-          if (this.dynamic) target.relocateAt = target.readyAt;
+          if (this.dynamic) this.planNext(target, now);
           target.hitAt = now;
           target.arms = {};
           const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
@@ -139,7 +171,7 @@ export class WorkoutTracker {
   }
 }
 export class GameEngine {
-  constructor(calibration, phase = 7) { this.phase = phase; this.calibration = calibration; this.targets = new TargetManager(calibration, phase >= 2); this.energy = new EnergySystem(); this.movement = new MovementTracker(); this.workout = new WorkoutTracker(); this.lastId = -1; this.lastPoseAt = -Infinity; }
+  constructor(calibration, phase = 7, reach = 'wide') { this.phase = phase; this.calibration = calibration; this.targets = new TargetManager(calibration, phase >= 2, reach); this.energy = new EnergySystem(); this.movement = new MovementTracker(); this.workout = new WorkoutTracker(); this.lastId = -1; this.lastPoseAt = -Infinity; }
   resetTracking() { this.targets.resetArms(); this.movement.reset(); this.workout.reset(); }
   process(pose, now) {
     if (pose.id <= this.lastId || now - pose.capturedAt > 200) return [];

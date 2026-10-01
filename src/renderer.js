@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { ParticleSystem } from './effects.js';
 import { impactAt } from './impact.js';
+// An independent rounded tile, entirely inside its circular contact area.
+function tilePath(ctx, x, y, radius) {
+  const r = radius * .76, corner = r * .32;
+  ctx.beginPath(); ctx.moveTo(x-r+corner,y-r); ctx.lineTo(x+r-corner,y-r); ctx.quadraticCurveTo(x+r,y-r,x+r,y-r+corner);
+  ctx.lineTo(x+r,y+r-corner); ctx.quadraticCurveTo(x+r,y+r,x+r-corner,y+r); ctx.lineTo(x-r+corner,y+r); ctx.quadraticCurveTo(x-r,y+r,x-r,y+r-corner);
+  ctx.lineTo(x-r,y-r+corner); ctx.quadraticCurveTo(x-r,y-r,x-r+corner,y-r); ctx.closePath();
+}
 export class Renderer {
   constructor(canvas) { this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.particles = new ParticleSystem(); this.markers = {}; this.trails = {}; this.dpr = 1.5; this.characters = {}; for (const name of ['idle', 'cheer', 'fever']) { const img = new Image(); img.src = new URL(`../assets/characters/${name}.png`, import.meta.url).href; this.characters[name] = img; } }
   resize() { const rect = this.canvas.getBoundingClientRect(); this.width = rect.width; this.height = rect.height; const dpr = Math.min(devicePixelRatio || 1, this.dpr); this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr); this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.markers = {}; this.trails = {}; }
@@ -40,19 +47,44 @@ export class Renderer {
       }
       ctx.globalAlpha = 1;
     }
+    if (game?.targets.dynamic) {
+      const manager = game.targets, c = game.calibration.center, s = game.calibration.shoulder;
+      const origin = { x: c.x, y: c.y - .45 * s };
+      const lead = manager.active.find(t => t.id === manager.leadId) || manager.active[0];
+      const next = manager.active.find(t => t !== lead);
+      if (lead && next && !reduced) {
+        ctx.save(); ctx.setLineDash([3,9]); ctx.strokeStyle = '#c7f0df'; ctx.globalAlpha = .22; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(lead.x,lead.y); ctx.quadraticCurveTo(c.x,Math.min(lead.y,next.y)-s*.25,next.x,next.y); ctx.stroke(); ctx.restore();
+      }
+      const preview = manager.preview;
+      if (preview) {
+        const duration = Math.max(1,preview.arrivesAt-preview.bornAt), progress = Math.min(1,Math.max(0,(now-preview.bornAt)/duration));
+        const travel = reduced ? 1 : 1-(1-progress)**2;
+        const x = origin.x+(preview.x-origin.x)*travel, y = origin.y+(preview.y-origin.y)*travel;
+        const color = preview.lane === 1 ? '#85d9c0' : '#ffb192';
+        ctx.save(); ctx.globalAlpha = .28; ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash([4,6]);
+        ctx.beginPath();ctx.arc(preview.x,preview.y,preview.radius+6,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+        ctx.globalAlpha = .35 + progress*.2; tilePath(ctx,x,y,preview.radius*(reduced? .8 : .3+progress*.55));ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#fff';ctx.stroke();
+        ctx.globalAlpha=.8;ctx.fillStyle=color;ctx.textAlign='center';ctx.font='700 10px system-ui';ctx.fillText('NEXT',preview.x,preview.y-preview.radius-12);ctx.restore();
+      }
+    }
     if (game) for (const t of game.targets.targets) {
       const color = t.id === 1 ? '#85d9c0' : '#ffb192', impact = impactAt(now - t.hitAt, t.intensity || 1, reduced);
+      if (t.waiting && !impact.alpha) continue;
       const arrival = reduced || !game.targets.dynamic ? 1 : Math.min(1, Math.max(0, (now - (t.bornAt ?? now)) / 900));
       const depth = .64 + .36 * (1 - (1 - arrival) ** 3), radius = t.radius * depth * impact.scale;
       const fade = reduced || !Number.isFinite(t.expiresAt) ? 1 : Math.min(1, Math.max(.2, (t.expiresAt - now) / 200));
       // The faint outer circle marks the generous, constant hit area.
       ctx.globalAlpha = .25 * fade; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(t.x, t.y, t.radius + 6, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = fade * (.65 + arrival * .35);
+      ctx.globalAlpha = fade * (t.waiting ? impact.alpha : t.id === game.targets.leadId || !game.targets.dynamic ? 1 : .78);
       const disc = ctx.createRadialGradient(t.x - radius * .25, t.y - radius * .3, 0, t.x, t.y, radius);
       disc.addColorStop(0, t.id === 1 ? '#b8f4de' : '#ffd6be'); disc.addColorStop(.68, color); disc.addColorStop(1, t.id === 1 ? '#347d70' : '#b65e44');
-      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(t.x, t.y, radius, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#ffffffc9'; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.fillStyle = '#173b32'; ctx.font = `800 ${Math.max(9, radius * .3)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('タッチ', t.x, t.y + 4);
-      if (impact.flash) { ctx.globalAlpha = impact.flash; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(t.x, t.y, radius + 2, 0, Math.PI * 2); ctx.fill(); }
+      if (game.targets.dynamic) { ctx.fillStyle=t.id === 1 ? '#28584f' : '#763f32';tilePath(ctx,t.x+3,t.y-4,radius);ctx.fill();tilePath(ctx,t.x,t.y,radius); }
+      else { ctx.beginPath(); ctx.arc(t.x, t.y, radius, 0, Math.PI * 2); }
+      ctx.fillStyle = disc; ctx.fill(); ctx.strokeStyle = '#ffffffc9'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.fillStyle = '#173b32'; ctx.font = `800 ${Math.max(10, radius * .36)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(game.targets.dynamic && t.id === game.targets.leadId ? 'GO' : 'タッチ', t.x, t.y + 4);
+      if (impact.flash) { ctx.globalAlpha = impact.flash; ctx.fillStyle = '#fff'; if(game.targets.dynamic)tilePath(ctx,t.x,t.y,radius+2);else{ctx.beginPath();ctx.arc(t.x,t.y,radius+2,0,Math.PI*2);}ctx.fill(); }
+      if (!reduced && !t.waiting && game.targets.dynamic && t.id === game.targets.leadId) { ctx.globalAlpha=.3+beat*.25;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(t.x,t.y,t.radius+9+beat*3,0,Math.PI*2);ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
     if (advanced && !reduced) for (const reward of this.rewards || []) {

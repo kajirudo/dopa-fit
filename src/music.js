@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 export class MusicEngine {
   constructor(audio, getState) { this.audio = audio; this.getState = getState; this.step = 0; this.timer = null; this.layer = 0; this.cycle = 'BUILD'; this.seconds = 0; }
-  start(seconds = 0) { this.stop(); this.seconds = seconds; this.step = Math.floor(seconds / (60 / 112 / 4)); this.nextTime = this.audio.ctx.currentTime + .06; this.tick(); this.timer = setInterval(() => this.tick(), 25); }
+  start(seconds = 0) { this.stop(); this.seconds = seconds; this.step = Math.floor(seconds / (60 / 112 / 4)); this.nextTime = this.audio.ctx.currentTime + .06; this.origin = this.nextTime - this.step * (60 / 112 / 4); this.tick(); this.timer = setInterval(() => this.tick(), 25); }
+  get clockSeconds() { const ctx=this.audio.ctx; return this.timer!==null && this.audio.ready && ctx?.state==='running' && Number.isFinite(this.origin) ? Math.max(0,ctx.currentTime-this.origin) : null; }
   stop() { clearInterval(this.timer); this.timer = null; }
   tick() {
     const ctx = this.audio.ctx; if (!ctx || ctx.state !== 'running') return;
-    if (this.nextTime < ctx.currentTime - .1) { this.step = Math.ceil(this.step / 16) * 16; this.nextTime = ctx.currentTime + .04; }
+    if (this.nextTime < ctx.currentTime - .1) { this.step = Math.ceil(this.step / 16) * 16; this.nextTime = ctx.currentTime + .04; this.origin=this.nextTime-this.step*(60/112/4); }
     while (this.nextTime < ctx.currentTime + .12) {
       if (this.step % 16 === 0) { const state = this.getState(); this.layer = state.layer; this.cycle = state.cycle; }
       this.schedule(this.step, this.nextTime); this.nextTime += 60 / 112 / 4; this.step++;
