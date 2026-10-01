@@ -11,7 +11,7 @@ const fs = require('node:fs/promises'), path = require('node:path'), os = requir
  const result={date:new Date().toISOString(),environment:'Desktop Chromium synthetic test only',checks:[]};
  let browser,fallback;
  try{
-  browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),a=await context.newPage(),b=await context.newPage();
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({locale:'ja-JP',viewport:{width:390,height:844}}),a=await context.newPage(),b=await context.newPage();
   await a.goto(base);await a.waitForFunction(()=>navigator.serviceWorker.controller&&document.getElementById('offline').textContent.includes('OK'));
   await a.evaluate(async()=>{window.testApp=(await import('./src/app.js')).app;});await a.locator('#demo').click();await a.waitForFunction(()=>window.testApp.state==='PLAYING');
   await b.goto(base);await b.evaluate(async()=>{window.testApp=(await import('./src/app.js')).app;});

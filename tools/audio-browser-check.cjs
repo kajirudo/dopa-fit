@@ -20,7 +20,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     for (const engine of ['chromium', 'webkit']) {
       const browser = await engines[engine].launch({headless:true});
       try {
-        const page = await browser.newPage({viewport:{width:390,height:844}}), errors = [], checks = [];
+        const page = await browser.newPage({locale:'ja-JP',viewport:{width:390,height:844}}), errors = [], checks = [];
         page.on('pageerror', error => errors.push(error.message));
         await page.goto(base); await page.evaluate(async () => { window.testApp = (await import('./src/app.js')).app; });
         if (!await page.evaluate(() => !!(globalThis.AudioContext || globalThis.webkitAudioContext))) {

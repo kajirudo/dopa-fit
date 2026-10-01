@@ -8,7 +8,7 @@
 
 ![Dopa Fitの応援ロボット](assets/characters/idle.png)
 
-現在は**公開候補版**です。Androidで音と手振りが動作し、音声改善後にはiPhoneでも音が出たとの利用者報告があります。rc.9の半身モードと5段階の視覚演出も利用者確認済みです。rc.10では半身の上・中央へのターゲット配置、マスコットの左上移動、FEVERごとのテンポと音色の変化を追加しました。新しい音楽と配置の実機評価、機種／OSの特定、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。
+現在は**公開候補版**です。Androidで音と手振りが動作し、音声改善後にはiPhoneでも音が出たとの利用者報告があります。rc.9の半身モードと5段階の視覚演出も利用者確認済みです。rc.10では配置と可変テンポ音楽を改善。rc.11では日本語／英語の切替と、肩・両手・腰の認識状況を見ながら準備できる案内を追加しました。新しい音楽・配置・準備案内の実機評価、機種／OSの特定、長時間の性能・発熱・バッテリー評価は未完了です。[確認状況](docs/release-checklist.md)を参照してください。
 
 ## Concept
 
@@ -21,6 +21,14 @@ Movement creates reward. 身体を動かすほど音楽の編成と光の演出�
 - No game over
 - Movement creates reward
 - Success makes the experience richer
+
+## Language / 言語
+
+説明・設定・準備・結果・プライバシーは日本語と英語で切り替えられます。初期値は端末の優先言語（日本語なら日本語、それ以外は英語）。トップ画面、準備画面、Pauseから手動変更でき、この端末に保存します。
+
+Instructions, setup, settings, results and privacy are available in Japanese and English. Your device’s preferred language sets the initial choice. Use the language selector to change it; your choice is saved only on your device.
+
+**Quick start:** stand your phone upright → Start → allow camera → show shoulders and both hands in front of your chest → wait for the checks and countdown → reach for glowing targets with either hand. Upper body works seated or standing; Full body also needs visible hips. You can switch modes during setup. Match the example pose loosely; precise alignment is not required.
 
 ## How to Play
 
@@ -104,3 +112,5 @@ Dopa Fit独自コード・文書・独自SVGは[MIT](LICENSE)。独自生成キ�
 VercelでGitHub `kajirudo/dopa-fit`をImportし、チーム`kajirudos-projects`、Production Branch `main`、Framework `Other`、Build Command空欄、Output Directory `.`を使用します。Functions・DB・分析SDKは不要です。[公開手順](docs/deployment.md)と[実機チェック](docs/release-checklist.md)を完了してからRelease Readyとします。
 
 PWAインストールは任意。キャッシュ保存完了後はオフラインでも動作します。更新は全タブで運動を終えて適用します。静的ファイル変更後は必ず`npm run audit:files`でキャッシュのハッシュを再生成してください。
+
+準備画面：映像をぼかさず、姿勢の例・認識チェック・安定待ちの進捗・足りない部位への短い案内を表示します。両手は一度ずつ見せ、肩の位置が約0.75秒安定すると3秒のカウントダウンへ進みます。全身は腰も必要。準備中に半身へ変更でき、準備画面を閉じて設定へ戻る必要はありません。シルエットに正確に合わせる必要はなく、判定条件とHITの成功扱いは維持します。

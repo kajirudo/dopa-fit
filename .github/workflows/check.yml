@@ -19,3 +19,4 @@ jobs:
       - run: npm run test:pwa
       - run: npm run test:audio-browser
       - run: npm run test:music-render
+      - run: npm run test:setup-browser

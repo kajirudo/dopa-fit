@@ -18,7 +18,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
   await fs.mkdir(path.join(root,'test-results'),{recursive:true});
   let browser;
   try { browser = await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--enable-unsafe-swiftshader']}); } catch(error) {server?.close();throw error;}
-  const context = await browser.newContext({viewport:{width:1440,height:1000},permissions:['camera']});
+  const context = await browser.newContext({locale:'ja-JP',viewport:{width:1440,height:1000},permissions:['camera']});
   const requests=[],errors=[],results={date:new Date().toISOString(),browser:browser.version(),environment:'Desktop Chromium, fake camera, software WebGL; not physical iPhone/Android',checks:[]};
   context.on('request',r=>requests.push({url:r.url(),method:r.method(),body:!!r.postData()}));
   const page = await context.newPage();

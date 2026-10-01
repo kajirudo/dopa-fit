@@ -5,6 +5,8 @@ import { HAND_GRACE_MS } from './hands.js';
 import { feverStage } from './fever.js';
 import { targetLayout } from './game.js';
 import { overlapsTarget } from './layout.js';
+import { t as translate } from './i18n.js';
+const touchLabel=()=>translate('touch');
 // An independent rounded tile, entirely inside its circular contact area.
 function tilePath(ctx, x, y, radius) {
   const r = radius * .76, corner = r * .32;
@@ -92,7 +94,7 @@ export class Renderer {
       if (game.targets.dynamic) { ctx.fillStyle=t.id === 1 ? '#28584f' : '#763f32';tilePath(ctx,t.x+3,t.y-4,radius);ctx.fill();tilePath(ctx,t.x,t.y,radius); }
       else { ctx.beginPath(); ctx.arc(t.x, t.y, radius, 0, Math.PI * 2); }
       ctx.fillStyle = disc; ctx.fill(); ctx.strokeStyle = '#ffffffc9'; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.fillStyle = '#173b32'; ctx.font = `800 ${Math.max(10, radius * .36)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(game.targets.dynamic && t.id === game.targets.leadId ? 'GO' : 'タッチ', t.x, t.y + 4);
+      ctx.fillStyle = '#173b32'; ctx.font = `800 ${Math.max(10, radius * .36)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(game.targets.dynamic && t.id === game.targets.leadId ? 'GO' : touchLabel(), t.x, t.y + 4);
       if (impact.flash) { ctx.globalAlpha = impact.flash; ctx.fillStyle = '#fff'; if(game.targets.dynamic)tilePath(ctx,t.x,t.y,radius+2);else{ctx.beginPath();ctx.arc(t.x,t.y,radius+2,0,Math.PI*2);}ctx.fill(); }
       if (!reduced && !t.waiting && game.targets.dynamic && t.id === game.targets.leadId) { ctx.globalAlpha=.3+beat*.25;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(t.x,t.y,t.radius+9+beat*3,0,Math.PI*2);ctx.stroke(); }
       ctx.globalAlpha = 1;

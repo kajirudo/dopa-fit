@@ -12,10 +12,9 @@ import { Store } from './storage.js';
 import { FeedbackDirector } from './feedback.js';
 import { FEVER_STAGES, feverStage, BASE_BPM, REST_BPM } from './fever.js';
 import { mascotBox } from './layout.js';
+import { t, initialLanguage, setLanguage, applyLanguage, getLanguage } from './i18n.js';
 const $ = id => document.getElementById(id);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-const courseCues = ['左右へ、ゆっくりリーチ', '両手を上げてみよう', '左右へステップ', 'ゆっくり上下に動こう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
-const upperCues = ['胸の前で、左右へリーチ', '両手で上のターゲットへ', '斜めへ、交互にリーチ', '小さく手を振ってみよう', '好きな動きで音をつくろう', 'ひと息、のんびり動こう'];
 export class AppController {
   constructor() {
     this.phase = Math.max(1, Math.min(7, Number(new URLSearchParams(location.search).get('phase')) || 7));
@@ -23,6 +22,7 @@ export class AppController {
     this.state = 'IDLE'; this.generation = 0; this.seconds = 0; this.game = null; this.demo = false; this.pointer = null; this.mapped = null; this.lastFrame = 0; this.lastInference = 0; this.inferenceInterval = 50; this.latencies = []; this.frameTimes = []; this.poseTimes = []; this.shiftSince = 0; this.countdownAt = null;
     this.music = new MusicEngine(this.audio, () => this.game?.energy || { layer: 0, cycle: 'BUILD' });
     this.feedbackDirector = new FeedbackDirector(); this.renderer.phase = this.phase; this.hands = new HandTracker();
+    setLanguage(initialLanguage(this.store.read('settings',{}).language)); applyLanguage();
     this.bind();
     this.audio.onStatus = () => { this.updateAudio(); if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     this.resize = () => { if (this.state === 'IDLE' || this.state === 'FINISHED') return; this.renderer.resize(); if (['PLAYING', 'COUNTDOWN', 'CALIBRATING'].includes(this.state)) this.beginCalibration(); };
@@ -49,10 +49,11 @@ export class AppController {
     $('audio-retry').onclick = () => this.retryAudio();
     const settings = this.store.read('settings', {});
     this.bodyMode = settings.bodyMode === 'full' ? 'full' : 'upper';
-    for(const id of ['body-mode','body-mode-settings']) {
+    for(const id of ['body-mode','body-mode-settings','calibration-mode']) {
       $(id).value=this.bodyMode;
-      $(id).onchange=()=>{this.bodyMode=$(id).value;for(const other of ['body-mode','body-mode-settings'])$(other).value=this.bodyMode;$('camera-fit').value=this.bodyMode==='full'?'contain':'cover';$('play').classList.toggle('fit-camera',$('camera-fit').value==='contain');this.bodyHint();this.saveSettings();};
+      $(id).onchange=()=>{this.bodyMode=$(id).value;for(const other of ['body-mode','body-mode-settings','calibration-mode'])$(other).value=this.bodyMode;$('camera-fit').value=this.bodyMode==='full'?'contain':'cover';$('play').classList.toggle('fit-camera',$('camera-fit').value==='contain');this.bodyHint();this.saveSettings();if(this.state==='CALIBRATING')this.beginCalibration();};
     }
+    for(const el of document.querySelectorAll('[data-language]'))el.onchange=()=>this.changeLanguage(el.value);
     this.bodyHint();
     $('reach').value = settings.reach === 'small' ? 'small' : 'wide';
     $('reach').onchange = () => this.saveSettings();
@@ -71,14 +72,14 @@ export class AppController {
     $('canvas').addEventListener('pointerup', () => { if (this.demo) this.pointer = null; });
     $('canvas').addEventListener('pointercancel', () => { this.pointer = null; });
   }
-  bodyHint() { $('body-hint').textContent=this.bodyMode==='full'?'全身で：腰まで映る距離へ。ステップ・上下動も楽しめます。':'半身で：近くで立っても、座っても。両手を胸の前へ。距離は画角に合わせて調整。'; }
-  get courseCue() { return (this.bodyMode==='upper'?upperCues:courseCues)[Math.min(5,Math.floor(this.seconds/30))]; }
-  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode }); }
+  bodyHint() { $('body-hint').textContent=t(this.bodyMode==='full'?'hintFull':'hintUpper'); }
+  get courseCue() { return t(`${this.bodyMode==='upper'?'upper':'full'}Cue${Math.min(5,Math.floor(this.seconds/30))}`); }
+  saveSettings() { this.store.write('settings', { language:getLanguage(), volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
-    $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
-    $('audio-status').textContent = this.audio.pending ? '確認音を準備中…' : quiet ? '音はOFFです' : this.audio.ready ? '音が聞こえないときは →' : 'タップして音を有効に →';
-    $('audio-retry').textContent = this.audio.ready && !quiet ? '音を試す' : '音を有効にする';
+    $('mute').textContent = t(this.audio.muted ? 'soundOff' : 'soundOn'); $('mute').setAttribute('aria-pressed', String(this.audio.muted));
+    $('audio-status').textContent = t(this.audio.pending?'audioPending':quiet?'audioQuiet':this.audio.ready?'audioReady':'audioEnable');
+    $('audio-retry').textContent = t(this.audio.ready&&!quiet?'audioTest':'audioRetry');
     $('audio-retry').disabled = this.audio.pending || ['IDLE', 'FINISHED', 'ERROR'].includes(this.state) || (this.state === 'PAUSED' && !$('settings').open);
     $('sound-alert').classList.toggle('hidden', this.state !== 'PLAYING' || this.audio.ready || quiet || this.audio.pending);
     $('audio-check').classList.toggle('needs-audio', !this.audio.ready && !quiet && !this.audio.pending);
@@ -97,14 +98,28 @@ export class AppController {
     } catch { this.audio.pending = false; this.audio.ready = false; }
     this.updateAudio();
   }
-  message(text, action = false, countdown = false) { $('stage-scrim').classList.remove('hidden'); $('stage-message').textContent = text; $('stage-message').classList.toggle('countdown', countdown); $('resume').classList.toggle('hidden', !action); }
+  message(text, action = false, countdown = false) { this.messageTranslation=null;const calibrating=this.state==='CALIBRATING'&&!this.demo; $('stage-scrim').classList.toggle('calibrating',calibrating);$('stage-scrim').classList.toggle('counting',countdown);$('calibration-panel').classList.toggle('hidden',!calibrating);$('calibration-guide').classList.toggle('hidden',!calibrating);$('countdown-note').classList.toggle('hidden',!countdown);$('stage-scrim').classList.remove('hidden'); if($('stage-message').textContent!==text)$('stage-message').textContent = text; $('stage-message').classList.toggle('countdown', countdown); $('resume').classList.toggle('hidden', !action); }
+  messageKey(key,action=false,values={}) { this.message(t(key,values),action);this.messageTranslation={key,action,values}; }
+  changeLanguage(value) {
+    const message=this.messageTranslation;setLanguage(value);applyLanguage();this.bodyHint();this.updateAudio();this.saveSettings();
+    $('offline').textContent=t(this.offlineStatus||'online');if(this.updateBusy)$('update').textContent=t('updateBusy');
+    if(this.state==='CALIBRATING')this.showCalibration(this.latestCalibration);else if(message)this.messageKey(message.key,message.action,message.values);
+    if($('history').open)this.renderHistory();this.updateUI(performance.now());
+  }
+  showCalibration(result=null) {
+    this.latestCalibration=result;this.messageKey(this.demo?'demoGuide':result?.reason||'calHands');
+    $('calibration-intro').textContent=t(this.bodyMode==='upper'?'calibrationUpper':'calibrationFull');
+    $('calibration-guide').classList.toggle('full-body',this.bodyMode==='full');$('check-hips').classList.toggle('hidden',this.bodyMode!=='full');
+    for(const part of ['shoulders','hands','hips']) { const seen=!!result?.checks?.[part],el=$(`check-${part}`);el.classList.toggle('seen',seen);el.querySelector('small').textContent=`${seen?'✓':'○'} ${t(seen?'detected':'waiting')}`;$('calibration-guide').classList.toggle(`seen-${part}`,seen); }
+    const progress=Math.round((result?.progress||0)*100);$('calibration-progress').setAttribute('aria-valuenow',String(progress));$('calibration-progress').firstElementChild.style.width=`${progress}%`;
+  }
   async start(demo) {
     if (!['IDLE', 'FINISHED', 'ERROR'].includes(this.state)) return;
     this.demo = demo; this.game = null; this.seconds = 0; this.mapped = null; this.pointer = null; this.renderer.rewards = []; this.audioClock = null; this.course = $('course').checked && this.phase >= 4; this.latencies = []; this.frameTimes = []; this.poseTimes = [];
     $('audio-help').classList.add('hidden');
     this.feedbackDirector.reset(); this.renderer.celebration = null; this.cueUntil = 0; $('celebration').classList.add('hidden'); this.lastCue = null;
-    $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : `${this.bodyMode==='upper'?'半身':'全身'} · ${this.course?'3 MIN FLOW':'FREE FLOW'}`;
-    this.state = 'STARTING'; this.updateUI(performance.now()); this.renderer.resize(); this.message(demo ? '音を準備しています' : 'カメラを許可してね\n音と姿勢推定を準備しています');
+    $('landing').classList.add('hidden'); $('play').classList.remove('hidden'); $('demo-badge').classList.toggle('hidden', !demo); $('mode-label').textContent = demo ? 'DEMO · NO CAMERA' : `${t(this.bodyMode==='upper'?'upper':'full')} · ${this.course?'3 MIN FLOW':'FREE FLOW'}`;
+    this.state = 'STARTING'; this.updateUI(performance.now()); this.renderer.resize(); this.messageKey(demo?'startingDemo':'starting');
     const generation = ++this.generation;
     // Calls are both initiated in this user gesture, before the first await.
     try {
@@ -121,12 +136,12 @@ export class AppController {
   fail(error) {
     this.hands.reset(); this.mapped = null;
     this.generation++; this.camera.stop(); this.music.stop(); this.audio.suspend(); this.state = 'ERROR'; cancelAnimationFrame(this.raf);
-    const messages = { NotAllowedError: 'カメラが許可されていません。\nブラウザのサイト設定で許可して、再開してください', NotFoundError: 'カメラが見つかりません。別の端末でも試せます', NotReadableError: 'カメラが使用中のようです。ほかのアプリを閉じて再開してください', OverconstrainedError: 'カメラを起動できません。再開して試してください' };
-    this.message(messages[error.name] || error.message || '準備できませんでした。再開して試してください', true);
+    const keys={NotAllowedError:'cameraDenied',NotFoundError:'cameraMissing',NotReadableError:'cameraBusy',OverconstrainedError:'cameraError'};
+    this.messageKey(keys[error.name]||'error',true);
   }
   beginCalibration() {
     this.hands.reset(); this.mapped = null; this.renderer.markers = {}; this.renderer.trails = {};
-    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? 'GOへ触れて、音をつくろう' : this.bodyMode==='upper'?'両手を胸の前に見せてね\n近くで、小さく動いてもOK':'肩・両手・腰が映る位置へ');
+    this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.latestCalibration=null; this.showCalibration();
     if (this.demo) {
       const w = this.renderer.width, h = this.renderer.height;
       this.acceptCalibration({ center: { x: w / 2, y: h * .46 }, shoulder: w * .28, rect: { x: 0, y: 0, width: w, height: h }, bodyMode: this.bodyMode });
@@ -139,7 +154,7 @@ export class AppController {
     calibration={...calibration,ui:{top:this.renderer.mascot?this.renderer.mascot.y+this.renderer.mascot.height+12:hud.bottom-stage.top+12,bottom:24}};
     const previous = this.game?.energy;
     this.game = new GameEngine(calibration, this.phase, $('reach').value); if (previous) this.game.energy = previous;
-    this.state = 'COUNTDOWN'; this.countdownAt = performance.now();
+    this.state = 'COUNTDOWN'; this.countdownAt = performance.now();this.message('3',false,true);
   }
   animate() {
     if (['IDLE', 'FINISHED', 'PAUSED', 'ERROR'].includes(this.state)) return;
@@ -175,7 +190,7 @@ export class AppController {
     const lShoulder = mapped.points.left_shoulder, rShoulder = mapped.points.right_shoulder;
     const shoulder = this.game?.calibration.shoulder || (lShoulder?.valid && rShoulder?.valid ? distance(lShoulder,rShoulder) : this.renderer.width*.25);
     const pose = this.hands.update(mapped, now, shoulder); this.mapped = pose;
-    if (this.state === 'CALIBRATING') { const result = this.calibration.update(pose, now, this.bodyMode); if (result.ready) this.acceptCalibration(result.calibration); else this.message(result.message); return; }
+    if (this.state === 'CALIBRATING') { const result=this.calibration.update(pose,now,this.bodyMode); this.showCalibration(result); if(result.ready)this.acceptCalibration(result.calibration);return; }
     if (this.state !== 'PLAYING') return;
     const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
     if (l?.valid && r?.valid) {
@@ -188,7 +203,7 @@ export class AppController {
     }
     this.feedback(this.game.process(pose, now));
     const valid = l?.valid && r?.valid;
-    $('course-cue').textContent = valid ? this.course ? this.courseCue : '' : this.bodyMode==='upper'?'両手を胸の前へ、身体を中央へ':'肩と両手を画面に戻してね';
+    $('course-cue').textContent = valid ? this.course ? this.courseCue : '' : t(this.bodyMode==='upper'?'trackingUpper':'trackingFull');
   }
   processDemo(now) {
     const c = this.game.calibration, p = this.pointer || { x: c.center.x, y: c.center.y + c.shoulder };
@@ -220,17 +235,17 @@ export class AppController {
     $('energy-fill').style.width = `${state ? Math.min(100, state.energy - state.lastFeverEnergy) : 0}%`;
     const stage=feverStage(state?.feverLevel), next=state?.nextFeverLevel || 1;
     const bpm=this.music.clock?.bpm || (state?.cycle==='FEVER'?stage.bpm:state?.cycle==='REST'?REST_BPM:BASE_BPM);
-    $('cycle').textContent = state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ひと息` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? `${feverStage(next).name}まであと ${Math.max(0,100-(state.energy-state.lastFeverEnergy))}` : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · 次は${feverStage(next).name}` : 'BUILD THE BEAT';
+    $('cycle').textContent = state?.cycle === 'FEVER' ? `${stage.name} ${stage.level}/5 · ${bpm} BPM · ${Math.ceil(Math.max(0, state.feverDuration - (this.seconds - state.phaseAt)))}s` : state?.cycle === 'REST' ? `FEVER ${state.feverLevel}/5 · ${t('calm')}` : this.phase >= 3 && state?.energy - state?.lastFeverEnergy >= 75 ? t('until',{name:feverStage(next).name,n:Math.max(0,100-(state.energy-state.lastFeverEnergy))}) : state?.feverLevel ? `FEVER ${state.feverLevel}/5 · ${t('next',{name:feverStage(next).name})}` : 'BUILD THE BEAT';
     $('play').dataset.feverLevel=String(state?.feverLevel || 0);
     $('play').classList.toggle('fever', state?.cycle === 'FEVER');
     $('cycle').classList.toggle('hidden', this.phase < 3 || (state?.cycle === 'BUILD' && !state.feverLevel && state.energy - state.lastFeverEnergy < 75) || !state);
-    [...$('fever-levels').children].forEach((el,i)=>{el.classList.toggle('on',i<(state?.feverLevel||0));el.setAttribute('aria-label',`${FEVER_STAGES[i].name} ${i<(state?.feverLevel||0)?'到達済み':'これから'}`);});
+    [...$('fever-levels').children].forEach((el,i)=>{el.classList.toggle('on',i<(state?.feverLevel||0));el.setAttribute('aria-label',`${FEVER_STAGES[i].name} ${t(i<(state?.feverLevel||0)?'reached':'upcoming')}`);});
     $('current-sound').textContent = this.phase === 1 ? 'TOUCH → SOUND' : `${LAYERS[state?.layer || 0]} ♪`;
     $('play').classList.toggle('near-fever', this.phase >= 3 && state?.cycle !== 'FEVER' && state?.energy - state?.lastFeverEnergy >= 75);
     $('rally').classList.toggle('hidden', this.phase < 3); $('rally-count').textContent = state?.hits || 0;
     if (now >= this.cueUntil) $('celebration').classList.add('hidden');
     $('layers').classList.toggle('hidden', this.phase === 1); $('energy-fill').parentElement.classList.toggle('hidden', this.phase === 1);
-    [...$('layers').children].forEach((el, i) => { el.classList.toggle('on', !!state && i <= state.layer); el.setAttribute('aria-label', `${LAYERS[i]} ${state && i <= state.layer ? '解放済み' : '未解放'}`); });
+    [...$('layers').children].forEach((el, i) => { el.classList.toggle('on', !!state && i <= state.layer); el.setAttribute('aria-label', `${LAYERS[i]} ${t(state && i <= state.layer ? 'unlocked' : 'locked')}`); });
     if (now - (this.lastMetricsAt || 0) > 1000) {
       this.lastMetricsAt = now; const sorted = [...this.latencies].sort((a, b) => a - b), fps = this.frameTimes.length ? 1000 / (this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length) : 0;
       const audioTime = this.audio.ctx?.currentTime ?? 0;
@@ -251,12 +266,12 @@ export class AppController {
   pause() {
     if (['IDLE', 'FINISHED', 'PAUSED'].includes(this.state)) return;
     this.hands.reset();
-    this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.message('ひと息つこう\nENERGYはそのまま', true);
+    this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.messageKey('paused',true);
     this.updateAudio();
   }
   async resume() {
     if (!['PAUSED', 'ERROR'].includes(this.state)) return;
-    this.state = 'STARTING'; const generation = ++this.generation; this.message('準備しています');
+    this.state = 'STARTING'; const generation = ++this.generation; this.messageKey('preparing');
     try { const audioPromise = this.audio.unlock({ rebuild: true }), cameraPromise = this.demo ? Promise.resolve() : this.camera.start(); await Promise.all([audioPromise, cameraPromise, this.demo ? Promise.resolve() : this.pose.init()]); if (generation !== this.generation) return; this.pose.lastVideoTime = -1; this.beginCalibration(); this.lastFrame = performance.now(); this.animate(); }
     catch (error) { if (generation === this.generation) this.fail(error); }
   }
@@ -270,14 +285,14 @@ export class AppController {
       const record = { at: new Date().toISOString(), seconds: Math.floor(this.seconds), energy: energy.energy, hits: energy.hits, input: this.demo ? 'demo' : 'camera' };
       const saved = this.phase >= 4 && this.store.saveSession(record);
       $('result-energy').textContent = record.energy; $('result-hits').textContent = record.hits; $('result-time').textContent = formatTime(record.seconds);
-      $('saved-note').textContent = saved ? (this.demo ? 'カメラなしのデモとして、この端末に記録しました。' : 'この端末にだけ記録しました。') : this.phase < 4 ? '今回の成果です。このモードでは履歴を保存しません。' : '今回の成果です。記録の保存はできませんでした。';
+      $('saved-note').textContent = t(saved?(this.demo?'savedDemo':'saved'):this.phase<4?'notSavedMode':'notSaved');
       $('result').showModal();
     }
   }
   renderHistory() {
     const list = $('history-list'); list.replaceChildren(); const history = this.store.history();
-    if (!history.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'まだ記録はありません。最初のひと動きから。'; list.append(p); }
-    for (const record of history) { const row = document.createElement('div'); row.className = 'history-row'; const date = document.createElement('span'); date.textContent = new Date(record.at).toLocaleDateString('ja-JP') + (record.input === 'demo' ? ' · デモ' : ''); const value = document.createElement('span'); value.textContent = `${record.energy} ENERGY · ${formatTime(record.seconds)}`; row.append(date, value); list.append(row); }
+    if (!history.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = t('emptyHistory'); list.append(p); }
+    for (const record of history) { const row = document.createElement('div'); row.className = 'history-row'; const date = document.createElement('span'); date.textContent = new Date(record.at).toLocaleDateString(getLanguage()==='ja'?'ja-JP':'en-US') + (record.input === 'demo' ? ` · ${t('demoName')}` : ''); const value = document.createElement('span'); value.textContent = `${record.energy} ENERGY · ${formatTime(record.seconds)}`; row.append(date, value); list.append(row); }
   }
   async offlineSetup() {
     if (!('serviceWorker' in navigator)) return;
@@ -289,12 +304,12 @@ export class AppController {
       $('update').onclick = async () => { if (!['IDLE', 'FINISHED'].includes(this.state)) await this.finish(); this.updateRequested = true; registration.waiting?.postMessage({ type: 'ACTIVATE' }); };
       navigator.serviceWorker.addEventListener('controllerchange', () => { if ((this.updateRequested || this.hadController) && ['IDLE','FINISHED'].includes(this.state) && !this.updating) { this.updating = true; location.reload(); } else (navigator.serviceWorker.controller)?.postMessage({ type: 'CHECK_READY' }); this.hadController = true; });
       navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data?.type === 'OFFLINE_READY') $('offline').textContent = 'オフライン利用OK';
+        if (event.data?.type === 'OFFLINE_READY') {this.offlineStatus='offlineReady'; $('offline').textContent=t(this.offlineStatus);}
         if (event.data?.type === 'STATE_REQUEST') event.source?.postMessage({ type: 'CLIENT_STATE', nonce: event.data.nonce, busy: !['IDLE', 'FINISHED'].includes(this.state) });
-        if (event.data?.type === 'UPDATE_BUSY') { this.updateRequested = false; $('update').textContent = 'ほかのタブの運動を終えて更新'; }
+        if (event.data?.type === 'UPDATE_BUSY') { this.updateRequested = false; this.updateBusy=true; $('update').textContent=t('updateBusy'); }
       });
       const check = () => (navigator.serviceWorker.controller || registration.active)?.postMessage({ type: 'CHECK_READY' }); check(); navigator.serviceWorker.ready.then(check);
-    } catch { $('offline').textContent = 'オフライン保存なし'; }
+    } catch { this.offlineStatus='offlineNone'; $('offline').textContent=t(this.offlineStatus); }
   }
 }
 export const app = new AppController();

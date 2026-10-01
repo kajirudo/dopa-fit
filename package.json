@@ -1,6 +1,6 @@
 {
   "name": "dopa-fit",
-  "version": "0.1.0-rc.10",
+  "version": "0.1.0-rc.11",
   "private": true,
   "type": "module",
   "devDependencies": {
@@ -12,6 +12,7 @@
     "test:browser": "node tools/browser-check.cjs",
     "test:pwa": "node tools/pwa-check.cjs",
     "test:audio-browser": "node tools/audio-browser-check.cjs",
-    "test:music-render": "node tools/music-render-check.cjs"
+    "test:music-render": "node tools/music-render-check.cjs",
+    "test:setup-browser": "node tools/setup-browser-check.cjs"
   }
 }
