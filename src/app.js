@@ -2,6 +2,7 @@
 import { CameraManager } from './camera.js';
 import { PoseDetector } from './pose.js';
 import { mapPose, distance } from './coordinates.js';
+import { HandTracker } from './hands.js';
 import { CalibrationManager } from './calibration.js';
 import { GameEngine, LAYERS, BAR_SECONDS } from './game.js';
 import { AudioManager } from './audio.js';
@@ -18,7 +19,7 @@ export class AppController {
     this.camera = new CameraManager($('camera')); this.pose = new PoseDetector(); this.audio = new AudioManager(); this.renderer = new Renderer($('canvas')); this.calibration = new CalibrationManager(); this.store = new Store();
     this.state = 'IDLE'; this.generation = 0; this.seconds = 0; this.game = null; this.demo = false; this.pointer = null; this.mapped = null; this.lastFrame = 0; this.lastInference = 0; this.inferenceInterval = 50; this.latencies = []; this.frameTimes = []; this.poseTimes = []; this.shiftSince = 0; this.countdownAt = null;
     this.music = new MusicEngine(this.audio, () => this.game?.energy || { layer: 0, cycle: 'BUILD' });
-    this.feedbackDirector = new FeedbackDirector(); this.renderer.phase = this.phase;
+    this.feedbackDirector = new FeedbackDirector(); this.renderer.phase = this.phase; this.hands = new HandTracker();
     this.bind();
     this.audio.onStatus = () => { this.updateAudio(); if (this.audio.ctx?.state === 'interrupted' && this.state === 'PLAYING') this.pause(); };
     this.resize = () => { if (this.state === 'IDLE' || this.state === 'FINISHED') return; this.renderer.resize(); if (['PLAYING', 'COUNTDOWN', 'CALIBRATING'].includes(this.state)) this.beginCalibration(); };
@@ -46,6 +47,9 @@ export class AppController {
     const settings = this.store.read('settings', {});
     $('reach').value = settings.reach === 'small' ? 'small' : 'wide';
     $('reach').onchange = () => this.saveSettings();
+    $('camera-fit').value = settings.cameraFit === 'contain' ? 'contain' : 'cover';
+    $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain');
+    $('camera-fit').onchange = () => { $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain'); this.saveSettings(); };
     $('volume').value = Math.min(100, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 55)); this.audio.volume = Number($('volume').value) / 100;
     $('volume').oninput = () => { this.audio.setVolume(Number($('volume').value) / 100); this.updateAudio(); this.saveSettings(); };
     $('reduced').checked = settings.reduced ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -58,7 +62,7 @@ export class AppController {
     $('canvas').addEventListener('pointerup', () => { if (this.demo) this.pointer = null; });
     $('canvas').addEventListener('pointercancel', () => { this.pointer = null; });
   }
-  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value }); }
+  saveSettings() { this.store.write('settings', { volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
     $('mute').textContent = this.audio.muted ? '音 OFF' : '音 ON'; $('mute').setAttribute('aria-pressed', String(this.audio.muted));
@@ -104,11 +108,13 @@ export class AppController {
     } catch (error) { if (generation === this.generation) this.fail(error); }
   }
   fail(error) {
+    this.hands.reset(); this.mapped = null;
     this.generation++; this.camera.stop(); this.music.stop(); this.audio.suspend(); this.state = 'ERROR'; cancelAnimationFrame(this.raf);
     const messages = { NotAllowedError: 'カメラが許可されていません。\nブラウザのサイト設定で許可して、再開してください', NotFoundError: 'カメラが見つかりません。別の端末でも試せます', NotReadableError: 'カメラが使用中のようです。ほかのアプリを閉じて再開してください', OverconstrainedError: 'カメラを起動できません。再開して試してください' };
     this.message(messages[error.name] || error.message || '準備できませんでした。再開して試してください', true);
   }
   beginCalibration() {
+    this.hands.reset(); this.mapped = null; this.renderer.markers = {}; this.renderer.trails = {};
     this.calibration.reset(); this.countdownAt = null; this.shiftSince = 0; this.game?.resetTracking(); this.state = 'CALIBRATING'; this.message(this.demo ? 'GOへ触れて、音をつくろう' : '肩と両手が映る位置に立ってね');
     if (this.demo) {
       const w = this.renderer.width, h = this.renderer.height;
@@ -138,7 +144,7 @@ export class AppController {
     }
     if (!this.demo && !this.pose.busy && now - this.lastInference >= this.inferenceInterval) {
       this.lastInference = now; const generation = this.generation;
-      this.pose.estimate($('camera'), now).then(frame => { if (generation === this.generation && frame) this.processFrame(frame); }).catch(error => { if (generation === this.generation) this.fail(error); });
+      this.pose.estimate($('camera'), now, { width: this.renderer.width, height: this.renderer.height, fit: $('camera-fit').value }).then(frame => { if (generation === this.generation && frame) this.processFrame(frame); }).catch(error => { if (generation === this.generation) this.fail(error); });
     }
     if (this.demo && this.state === 'PLAYING') this.processDemo(now);
     if (this.phase >= 3 && this.state === 'PLAYING') {
@@ -150,7 +156,10 @@ export class AppController {
   }
   processFrame(frame) {
     const now = performance.now(); this.latencies.push(frame.completedAt - frame.capturedAt); if (this.latencies.length > 200) this.latencies.shift(); this.poseTimes.push(now); if (this.poseTimes.length > 100) this.poseTimes.shift();
-    const pose = mapPose(frame, this.renderer.width, this.renderer.height, now); if (!pose) return; this.mapped = pose;
+    const mapped = mapPose(frame, this.renderer.width, this.renderer.height, now, $('camera-fit').value); if (!mapped) return;
+    const lShoulder = mapped.points.left_shoulder, rShoulder = mapped.points.right_shoulder;
+    const shoulder = this.game?.calibration.shoulder || (lShoulder?.valid && rShoulder?.valid ? distance(lShoulder,rShoulder) : this.renderer.width*.25);
+    const pose = this.hands.update(mapped, now, shoulder); this.mapped = pose;
     if (this.state === 'CALIBRATING') { const result = this.calibration.update(pose, now); if (result.ready) this.acceptCalibration(result.calibration); else this.message(result.message); return; }
     if (this.state !== 'PLAYING') return;
     const l = pose.points.left_shoulder, r = pose.points.right_shoulder;
@@ -169,7 +178,7 @@ export class AppController {
   processDemo(now) {
     const c = this.game.calibration, p = this.pointer || { x: c.center.x, y: c.center.y + c.shoulder };
     const points = { left_shoulder: { x: c.center.x - c.shoulder / 2, y: c.center.y, valid: true }, right_shoulder: { x: c.center.x + c.shoulder / 2, y: c.center.y, valid: true }, left_wrist: { ...p, valid: true }, right_wrist: { x: c.center.x, y: c.center.y + c.shoulder, valid: true } };
-    this.mapped = { id: ++this.pose.sequence, capturedAt: now, points, rect: c.rect };
+    this.mapped = this.hands.update({ id: ++this.pose.sequence, capturedAt: now, points, rect: c.rect }, now, c.shoulder);
     this.feedback(this.game.process(this.mapped, now));
     $('course-cue').textContent = this.course ? courseCues[Math.min(5, Math.floor(this.seconds / 30))] : '';
   }
@@ -222,6 +231,7 @@ export class AppController {
   }
   pause() {
     if (['IDLE', 'FINISHED', 'PAUSED'].includes(this.state)) return;
+    this.hands.reset();
     this.generation++; this.state = 'PAUSED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); this.audio.suspend(); this.game?.resetTracking(); this.mapped = null; this.message('ひと息つこう\nENERGYはそのまま', true);
     this.updateAudio();
   }
@@ -233,6 +243,7 @@ export class AppController {
   }
   async finish() {
     if (['IDLE', 'FINISHED'].includes(this.state)) return;
+    this.hands.reset();
     $('settings').close();
     const hadGame = !!this.game, energy = this.game?.energy; this.generation++; this.state = 'FINISHED'; cancelAnimationFrame(this.raf); this.camera.stop(); this.music.stop(); await this.audio.close(); await this.pose.dispose();
     $('play').classList.add('hidden'); $('landing').classList.remove('hidden'); this.mapped = null; this.renderer.particles.parts = [];

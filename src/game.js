@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { clamp, distance } from './coordinates.js';
+import { HAND_GRACE_MS } from './hands.js';
 export const LAYERS = ['Kick', 'Hi-hat', 'Snare', 'Bass', 'Synth', 'Melody'];
 export const THRESHOLDS = [0, 10, 25, 45, 70, 100];
 export const BAR_SECONDS = 60 / 112 * 4;
 export const BEAT_MS = 60 / 112 * 1000;
+export const targetRadius = shoulder => clamp(.32 * shoulder, 34, 60);
 // Four heights on each side. These are destinations, not eight simultaneous targets.
 export function targetPositions(calibration, reach = 'wide') {
-  const { center: c, shoulder: s, rect } = calibration, radius = clamp(.28 * s, 24, 44);
+  const { center: c, shoulder: s, rect } = calibration, radius = targetRadius(s);
   const scale = reach === 'small' ? .68 : 1, positions = [];
   for (const side of [-1, 1]) for (const [height, offset] of [-.75, -.1, .55, 1.15].entries()) {
     const point = { lane: side < 0 ? 0 : 1, height, radius,
@@ -28,12 +30,13 @@ export class TargetManager {
     this.dynamic = flow;
     this.targets = [];
     this.previous = {};
+    this.handReadyAt = {};
     this.positions = targetPositions(calibration, reach); this.leadId = 0; this.cycle = 'BUILD';
     this.place();
   }
   place() {
     const { center: c, shoulder: s } = this.calibration;
-    const radius = clamp(.28 * s, 24, 44);
+    const radius = targetRadius(s);
     this.targets = [-1, 1].map((side, index) => ({ id: index, x: c.x + side * .9 * s, y: c.y + .25 * s, radius, readyAt: 0, arms: {}, hitAt: -Infinity }));
     if (this.dynamic) for (const target of this.targets) Object.assign(target, this.destination(target.id, 0));
     for (const target of this.targets) { target.visits = 0; target.bornAt = null; target.expiresAt = Infinity; }
@@ -69,20 +72,27 @@ export class TargetManager {
   }
   process(pose, now) {
     this.advance(now);
-    const hits = [];
-    for (const target of this.targets) {
+    const hits = [], usedHands = new Set();
+    for (const target of [...this.targets].sort((a,b) => Number(b.id===this.leadId)-Number(a.id===this.leadId))) {
       if (target.waiting) continue;
       for (const name of ['left_wrist', 'right_wrist']) {
-        const p = pose.points[name];
+        if (usedHands.has(name)) continue;
+        const p = pose.hands?.[name] ?? (pose.hands ? null : pose.points[name]);
+        // Held markers are display-only. Preserve a brief arm state, never score them.
+        if (p?.held) { if(now-p.seenAt>HAND_GRACE_MS) { target.arms[name]=false;delete this.previous[name]; } continue; }
         if (!p?.valid) { target.arms[name] = false; delete this.previous[name]; continue; }
+        const radius = target.radius + (p.radius || 0);
         const d = distance(p, target);
         const previous = this.previous[name], dt = previous ? now - previous.at : 0;
-        const crossed = previous && dt > 0 && dt <= 200 && previous.at >= target.bornAt && distance(previous, target) > target.radius && segmentDistance(target, previous, p) <= target.radius;
-        if (d > target.radius + 8) target.arms[name] = true;
-        if ((d <= target.radius || crossed) && target.arms[name]) {
+        const grace = pose.hands ? HAND_GRACE_MS : 200;
+        if (dt > grace) target.arms[name] = false;
+        const crossed = previous && dt > 0 && dt <= grace && previous.at >= target.bornAt && distance(previous, target) > radius && segmentDistance(target, previous, p) <= radius;
+        if (d > radius + 8) target.arms[name] = true;
+        if ((d <= radius || crossed) && target.arms[name]) {
           target.arms[name] = false;
-          if (now < target.readyAt) continue;
+          if (now < target.readyAt || now < (this.handReadyAt[name] || 0)) continue;
           target.readyAt = now + 350;
+          this.handReadyAt[name] = now + 350;
           if (this.dynamic) this.planNext(target, now);
           target.hitAt = now;
           target.arms = {};
@@ -91,13 +101,15 @@ export class TargetManager {
           const speed = dt >= 16 && dt <= 200 && previous?.relative && relative ? distance(relative, previous.relative) / this.calibration.shoulder * 1000 / dt : 0;
           target.intensity = hitIntensity(speed);
           hits.push({ targetId: target.id, wristId: name, x: target.x, y: target.y, at: now, intensity: target.intensity });
+          usedHands.add(name);
           break;
         }
       }
     }
     for (const name of ['left_wrist', 'right_wrist']) {
-      const p = pose.points[name], l = pose.points.left_shoulder, r = pose.points.right_shoulder;
-      if (p?.valid) this.previous[name] = { x: p.x, y: p.y, at: now, relative: l?.valid && r?.valid ? { x: p.x - (l.x + r.x) / 2, y: p.y - (l.y + r.y) / 2 } : null };
+      const p = pose.hands?.[name] ?? (pose.hands ? null : pose.points[name]), l = pose.points.left_shoulder, r = pose.points.right_shoulder;
+      if (p?.held && now-p.seenAt<=HAND_GRACE_MS) continue;
+      if (p?.valid && !p.held) this.previous[name] = { x: p.x, y: p.y, at: now, relative: l?.valid && r?.valid ? { x: p.x - (l.x + r.x) / 2, y: p.y - (l.y + r.y) / 2 } : null };
       else delete this.previous[name];
     }
     return hits;

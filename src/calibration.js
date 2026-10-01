@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-import { clamp, distance } from './coordinates.js';
+import { distance } from './coordinates.js';
+import { targetRadius } from './game.js';
 const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 export class CalibrationManager {
   reset() { this.samples = []; this.wrists = new Set(); this.result = null; }
   constructor() { this.reset(); }
   update(pose, now) {
     const { left_shoulder: l, right_shoulder: r } = pose.points;
-    for (const name of ['left_wrist', 'right_wrist']) if (pose.points[name]?.valid) this.wrists.add(name);
+    for (const name of ['left_wrist', 'right_wrist']) if (pose.points[name]?.handValid ?? pose.points[name]?.valid) this.wrists.add(name);
     if (!l?.valid || !r?.valid) { this.samples = []; return { message: '肩と両手が映る位置に立ってね' }; }
     const shoulder = distance(l, r), center = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 };
-    const radius = clamp(.28 * shoulder, 24, 44), rect = pose.rect;
+    const radius = targetRadius(shoulder), rect = pose.rect;
     if (shoulder > rect.width * .38 || center.x - .9 * shoulder - radius < rect.x + 4 || center.x + .9 * shoulder + radius > rect.x + rect.width - 4) {
       this.samples = []; return { message: '少し下がって、画面の中央へ' };
     }

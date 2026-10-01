@@ -1,5 +1,5 @@
 {
-  "version": "8973730e4617ea97",
+  "version": "624a9525a2d6cd34",
   "files": [
     {
       "path": "LICENSE",
@@ -8,8 +8,8 @@
     },
     {
       "path": "PRIVACY.md",
-      "bytes": 3329,
-      "sha256": "2ba6e5eb9099c3d18fd89ddb0305564c068a84402c2a987ac4a5e22787a89f73"
+      "bytes": 3694,
+      "sha256": "14c7b994e58a3e4fff4a163079c10ac0979bafcaf4a37c8a1c96699142fa10d8"
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",
@@ -53,8 +53,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 8873,
-      "sha256": "374c0d51e6ac075cb06e6e8b0bfc0def66c599607b65df25f4f78cc734a734c6"
+      "bytes": 9475,
+      "sha256": "a9027d1b4bacf32221683e31297fa1c225666a3a068d46205a62b9cbf6cd0965"
     },
     {
       "path": "licenses/Apache-2.0.txt",
@@ -178,13 +178,13 @@
     },
     {
       "path": "privacy.html",
-      "bytes": 1937,
-      "sha256": "2d0f8ec6f10e725b0fb45a66da0c9227d840cb275753eb36e2758a392058f8f5"
+      "bytes": 2084,
+      "sha256": "bc5225a26c3d5ddf3644e00b7b35c605924ccc84961996d50a2a85286df09059"
     },
     {
       "path": "src/app.js",
-      "bytes": 24524,
-      "sha256": "3c14d170ebef1a7b66ba5f5a7e4b8613b7936ee2fd60a254beebd5055f320e95"
+      "bytes": 25591,
+      "sha256": "d91cf2e66dbe6a3b979caccd14d6a54ff6323a485595f2b7dd05dac76ee1b1cc"
     },
     {
       "path": "src/audio.js",
@@ -193,8 +193,8 @@
     },
     {
       "path": "src/calibration.js",
-      "bytes": 2248,
-      "sha256": "a19a40d8e9382f29465ffc1177b855dcd09c9b133e24537f15157c7c3bef3b8b"
+      "bytes": 2308,
+      "sha256": "17d0428d47b9187d8c476c4d344c64494d38e02777ec11d82cb362280dfcc1db"
     },
     {
       "path": "src/camera.js",
@@ -203,8 +203,8 @@
     },
     {
       "path": "src/coordinates.js",
-      "bytes": 1045,
-      "sha256": "4489c87d08918531ceadbe8aea30abf841d1a4c3eb208729acfbb4859469cb23"
+      "bytes": 1862,
+      "sha256": "b5ec64e6c2a86a6b4916c41a2aca0a363c356b334cbe3da26f354020cd9d4aad"
     },
     {
       "path": "src/effects.js",
@@ -218,8 +218,13 @@
     },
     {
       "path": "src/game.js",
-      "bytes": 11562,
-      "sha256": "ef08543d2482c22c4023a601d08b042c0e47471949de14584f248f69983c9844"
+      "bytes": 12452,
+      "sha256": "e8da04cd0a3fef181f75ca90fbb5f06c0504af8b9c185b9e0d5423e25ba768e7"
+    },
+    {
+      "path": "src/hands.js",
+      "bytes": 1475,
+      "sha256": "0771a7203969282858a9bbe2bab5ad9ca3bf25c03ee621a9333d219114c3c02c"
     },
     {
       "path": "src/impact.js",
@@ -233,13 +238,13 @@
     },
     {
       "path": "src/pose.js",
-      "bytes": 2986,
-      "sha256": "9220c1d3810e0d34f908f010c941b1abf45eb1495b4a83881ea8bf2f1eeac0e7"
+      "bytes": 3927,
+      "sha256": "e86b0d72b7482a17af4e30038aa656392fce8ea4c6f039d7257fb506f41e1598"
     },
     {
       "path": "src/renderer.js",
-      "bytes": 11228,
-      "sha256": "a68b90a2480b88331fca049271d33fec37599025af07a25f4e9a79016eb38605"
+      "bytes": 12125,
+      "sha256": "42171d089b375a764b920172013ced9e61f08156f324abc051dcf04dab41692c"
     },
     {
       "path": "src/storage.js",
@@ -248,8 +253,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 17430,
-      "sha256": "c5bcf5cd7a3e7457763616a22b47d4148b8a65418ff9cb483beaea01d7e89118"
+      "bytes": 17541,
+      "sha256": "2aac115a4b07735b5f5afd995d47f2019ba2f1cf8f98aac082a2be0ef6c28273"
     },
     {
       "path": "vendor/pose-detection.min.js",

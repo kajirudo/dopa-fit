@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { targetPositions, TargetManager, GameEngine, BEAT_MS } from '../src/game.js';
 const calibration = { center: { x: 180, y: 200 }, shoulder: 90, rect: { x: 0, y: 0, width: 360, height: 600 } };
 const pose = (x, y, id, time) => ({ id, capturedAt: time, points: { left_shoulder: { x: 135, y: 200, valid: true }, right_shoulder: { x: 225, y: 200, valid: true }, left_wrist: { x, y, valid: true }, right_wrist: { x: 180, y: 400, valid: true } } });
-test('eight destinations fit the visible video and small reach shrinks the body-relative travel', () => {
+test('eight wide destinations fit; compact mode merges overlapping larger targets and shrinks travel', () => {
   const wide = targetPositions(calibration), small = targetPositions(calibration, 'small');
-  assert.equal(wide.length, 8); assert.equal(small.length, 8);
+  assert.equal(wide.length, 8); assert.equal(small.length, 4);
   for (const p of wide) {
     assert.ok(p.x-p.radius>=0 && p.x+p.radius<=360 && p.y-p.radius>=0 && p.y+p.radius<=600);
-    const compact = small.find(q => q.height===p.height && q.lane===p.lane);
+    const compact = small.filter(q => q.lane===p.lane).reduce((a,b)=>Math.abs(b.height-p.height)<Math.abs(a.height-p.height)?b:a);
     assert.ok(Math.hypot(compact.x-180,compact.y-200)<Math.hypot(p.x-180,p.y-200));
   }
   const clipped = targetPositions({...calibration,center:{x:180,y:35},rect:{x:0,y:0,width:360,height:240}});

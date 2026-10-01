@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { cameraCrop } from './coordinates.js';
 const scripts = ['vendor/tf-core.min.js', 'vendor/tf-converter.min.js', 'vendor/tf-backend-webgl.min.js', 'vendor/pose-detection.min.js'];
 const loads = new Map();
 function loadScript(path) {
@@ -37,15 +38,23 @@ export class PoseDetector {
       this.backend = 'wasm';
     }
   }
-  async estimate(video, now) {
+  async estimate(video, now, view) {
     if (!this.detector || this.busy || video.readyState < 2 || video.currentTime === this.lastVideoTime) return null;
     this.busy = true; this.lastVideoTime = video.currentTime;
     try {
-      const poses = await this.detector.estimatePoses(video, { flipHorizontal: false }, now);
+      const crop = view?.fit === 'cover' ? cameraCrop(video.videoWidth,video.videoHeight,view.width,view.height) : null;
+      let input = video;
+      if (crop) {
+        this.cropCanvas ??= document.createElement('canvas');
+        const scale=Math.min(1,640/Math.max(crop.width,crop.height)), width=Math.max(1,Math.round(crop.width*scale)), height=Math.max(1,Math.round(crop.height*scale));
+        if(this.cropCanvas.width!==width||this.cropCanvas.height!==height){this.cropCanvas.width=width;this.cropCanvas.height=height;}
+        this.cropCanvas.getContext('2d').drawImage(video,crop.x,crop.y,crop.width,crop.height,0,0,width,height); input=this.cropCanvas;
+      }
+      const poses = await this.detector.estimatePoses(input, { flipHorizontal: false }, now);
       const points = {};
-      for (const p of poses[0]?.keypoints || []) points[p.name] = { x: p.x / video.videoWidth, y: p.y / video.videoHeight, score: p.score || 0 };
+      for (const p of poses[0]?.keypoints || []) points[p.name] = { x: crop ? (crop.x+p.x/input.width*crop.width)/video.videoWidth : p.x/video.videoWidth, y: crop ? (crop.y+p.y/input.height*crop.height)/video.videoHeight : p.y/video.videoHeight, score: p.score || 0 };
       return { id: ++this.sequence, capturedAt: now, completedAt: performance.now(), width: video.videoWidth, height: video.videoHeight, points };
     } finally { this.busy = false; }
   }
-  async dispose() { await this.initPromise?.catch(() => {}); while (this.busy) await new Promise(r => setTimeout(r, 10)); this.detector?.dispose(); this.detector = null; this.lastVideoTime = -1; }
+  async dispose() { await this.initPromise?.catch(() => {}); while (this.busy) await new Promise(r => setTimeout(r, 10)); this.detector?.dispose(); this.detector = null; this.lastVideoTime = -1; if(this.cropCanvas){this.cropCanvas.width=1;this.cropCanvas.height=1;this.cropCanvas=null;} }
 }

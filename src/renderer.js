@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { ParticleSystem } from './effects.js';
 import { impactAt } from './impact.js';
+import { HAND_GRACE_MS } from './hands.js';
 // An independent rounded tile, entirely inside its circular contact area.
 function tilePath(ctx, x, y, radius) {
   const r = radius * .76, corner = r * .32;
@@ -17,7 +18,7 @@ export class Renderer {
     this.rewards = this.rewards.filter(reward => Math.hypot(event.x - reward.x, event.y - reward.y) > 64);
     this.rewards.push({ ...event, color, label: move ? 'MOVE +1' : event.type === 'hit' ? 'HIT +5' : 'NICE +5' });
     if (this.rewards.length > 8) this.rewards.shift();
-    if (!move) this.particles.burst(event.x, event.y, color, { count: Math.round((this.phase >= 3 ? this.inFever ? 40 : 32 : 18) * (event.intensity || 1)), power: 1.25 * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
+    if (!move) this.particles.burst(event.x, event.y, color, { count: Math.round((this.phase >= 3 ? this.inFever ? 60 : 48 : 18) * (event.intensity || 1)), power: 1.55 * (event.intensity || 1), confetti: this.phase >= 3 && this.inFever, life: .2 });
   }
   celebrate(cue, now) {
     this.celebration = { ...cue, at: now };
@@ -32,7 +33,7 @@ export class Renderer {
     if (advanced) {
       const cx = this.width / 2, cy = this.height * .48, radius = Math.max(this.width, this.height) * .75;
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, fever ? `rgba(205,120,255,${.08 + beat * .07})` : `rgba(133,217,192,${.025 + beat * .025})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      gradient.addColorStop(0, fever ? `rgba(205,120,255,${.12 + beat * .10})` : `rgba(133,217,192,${.06 + beat * .04})`); gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient; ctx.fillRect(0, 0, this.width, this.height);
       if (fever && !reduced) {
         const rays = this.particleBudget === 80 ? 6 : 12;
@@ -72,8 +73,13 @@ export class Renderer {
       const color = t.id === 1 ? '#85d9c0' : '#ffb192', impact = impactAt(now - t.hitAt, t.intensity || 1, reduced);
       if (t.waiting && !impact.alpha) continue;
       const arrival = reduced || !game.targets.dynamic ? 1 : Math.min(1, Math.max(0, (now - (t.bornAt ?? now)) / 900));
-      const depth = .64 + .36 * (1 - (1 - arrival) ** 3), radius = t.radius * depth * impact.scale;
+      const depth = .8 + .2 * (1 - (1 - arrival) ** 3), radius = t.radius * depth * impact.scale;
       const fade = reduced || !Number.isFinite(t.expiresAt) ? 1 : Math.min(1, Math.max(.2, (t.expiresAt - now) / 200));
+      if (!reduced) {
+        const glow = ctx.createRadialGradient(t.x,t.y,0,t.x,t.y,t.radius*2.4);
+        glow.addColorStop(0, t.id === 1 ? '#85d9c080' : '#ffb19280'); glow.addColorStop(1,'#ffffff00');
+        ctx.globalAlpha=fade*(.55+beat*.3);ctx.fillStyle=glow;ctx.fillRect(t.x-t.radius*2.4,t.y-t.radius*2.4,t.radius*4.8,t.radius*4.8);
+      }
       // The faint outer circle marks the generous, constant hit area.
       ctx.globalAlpha = .25 * fade; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(t.x, t.y, t.radius + 6, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = fade * (t.waiting ? impact.alpha : t.id === game.targets.leadId || !game.targets.dynamic ? 1 : .78);
@@ -91,22 +97,26 @@ export class Renderer {
       const impact = impactAt(now - reward.at, reward.intensity || 1);
       if (reward.type === 'move' || !impact.alpha) continue;
       ctx.strokeStyle = reward.color; ctx.globalAlpha = impact.alpha * .9; ctx.lineWidth = 3 * impact.alpha + 1;
-      for (let ring = 0; ring < 2; ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (65 + ring * 25), 0, Math.PI * 2); ctx.stroke(); }
+      for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); ctx.arc(reward.x, reward.y, 22 + impact.ring * (85 + ring * 28), 0, Math.PI * 2); ctx.stroke(); }
       for (let i = 0; i < 8; i++) { const angle = i * Math.PI / 4, start = 26 + impact.ring * 38, end = start + impact.alpha * 20; ctx.beginPath(); ctx.moveTo(reward.x + Math.cos(angle) * start, reward.y + Math.sin(angle) * start); ctx.lineTo(reward.x + Math.cos(angle) * end, reward.y + Math.sin(angle) * end); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
     for (const [name, color] of [['left_wrist', '#ffb192'], ['right_wrist', '#85d9c0']]) {
-      const p = pose?.points[name];
-      if (!p?.valid || now - pose.capturedAt > 200) { delete this.markers[name]; delete this.trails[name]; continue; }
+      const p = pose?.hands?.[name] ?? (pose?.hands ? null : pose?.points[name]);
+      const age=now-(p?.seenAt ?? pose?.capturedAt ?? -Infinity);
+      if (!p?.valid || age > (pose?.hands ? HAND_GRACE_MS : 200)) { delete this.markers[name]; delete this.trails[name]; continue; }
+      const opacity=p.held || p.inferred || now-pose.capturedAt>200 ? Math.max(.15,1-age/HAND_GRACE_MS) : 1;
       const marker = this.markers[name] ??= { x: p.x, y: p.y }; const factor = 1 - Math.exp(-dt * 35);
       marker.x += (p.x - marker.x) * factor; marker.y += (p.y - marker.y) * factor;
-      const trail = this.trails[name] ??= []; trail.push({ ...marker, at: now }); while (trail.length > 16 || trail[0]?.at < now - 180) trail.shift();
+      const trail = this.trails[name] ??= []; trail.push({ ...marker, at: now }); while (trail.length > 16 || trail[0]?.at < now - 240) trail.shift();
       if (!reduced && trail.length > 1) {
         ctx.lineCap = 'round'; ctx.strokeStyle = color;
-        for (let i = 1; i < trail.length; i++) { ctx.globalAlpha = .7 * (i / trail.length) ** 2; ctx.lineWidth = 2 + i / trail.length * 7; ctx.beginPath(); ctx.moveTo(trail[i-1].x, trail[i-1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke(); }
+        for (let i = 1; i < trail.length; i++) { ctx.globalAlpha = opacity * .8 * (i / trail.length) ** 2; ctx.lineWidth = 2 + i / trail.length * 10; ctx.beginPath(); ctx.moveTo(trail[i-1].x, trail[i-1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke(); }
         ctx.globalAlpha = 1;
       }
-      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(marker.x, marker.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.globalAlpha=opacity*.2;ctx.fillStyle=color;ctx.beginPath();ctx.arc(marker.x,marker.y,p.radius||20,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=opacity*.7;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
+      ctx.globalAlpha=opacity;ctx.fillStyle = color; ctx.beginPath(); ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();ctx.globalAlpha=1;
     }
     this.particles.update(dt); this.particles.draw(ctx);
     this.rewards = (this.rewards || []).filter(reward => now - reward.at < 650);

@@ -9,7 +9,7 @@ const pose = (x, y, id = 1, time = 0) => ({ id, capturedAt: time, rect: calibrat
 test('contain + one mirror maps the original video consistently', () => {
   assert.deepEqual(viewport(640, 480, 360, 640), { x: 0, y: 185, width: 360, height: 270 });
   const mapped = mapPose({ id: 1, width: 640, height: 480, capturedAt: 0, points: { left_wrist: { x: .25, y: .5, score: .9 } } }, 360, 640, 100);
-  assert.deepEqual(mapped.points.left_wrist, { x: 270, y: 320, valid: true });
+  assert.deepEqual(mapped.points.left_wrist, { x: 270, y: 320, score: .9, valid: true, handValid: true });
   assert.equal(mapPose({ width: 640, height: 480, capturedAt: 0, points: { wrist: { x: .25, y: .5, score: 1 } } }, 360, 640, 201).points.wrist.valid, false);
   assert.equal(viewport(0, 480, 360, 640), null);
 });
