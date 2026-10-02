@@ -40,7 +40,7 @@ export class DopaRecordController {
   start(demo){
     this.stopPreview();this.abortExport?.abort();this.abortExport=null;this.exporting=false;this.clearVideo();this.session?.dispose();this.session=null;this.plan=null;this.demo=demo;this.configure();this.enabled=$('record-enabled').checked;
     if(this.nextProvider&&this.nextProvider!==this.provider){this.tracker?.dispose();this.tracker=null;this.provider=this.nextProvider;}this.poc=new PoCMetrics(this.provider);
-    this.trackingError=null;$('record-result').classList.add('hidden');$('record-indicator').classList.toggle('hidden',!this.enabled);
+    this.trackingError=null;this.exportError=null;this.fallbackReason=null;$('record-result').classList.add('hidden');$('record-indicator').classList.toggle('hidden',!this.enabled);
     if(this.enabled){try{this.session=new RecordSession({onStatus:status=>{this.status=status;$('record-indicator').textContent=status==='on'?'RECORD ON':t(status==='limited'?'recordLimited':'recordError');}});}catch{this.status='error';$('record-indicator').textContent=t('recordError');}}
     if(this.masked&&!demo)this.initTracker();
   }
@@ -70,6 +70,7 @@ export class DopaRecordController {
   async generate(){
     if(!this.enabled)return;$('record-result').classList.remove('hidden');$('video-retry').classList.add('hidden');$('video-save').disabled=$('video-share').disabled=true;
     this.abortExport?.abort();const controller=new AbortController();this.abortExport=controller;
+    this.exportError=null;this.fallbackReason=null;
     if(!this.session){$('record-status').textContent=t('videoFailed');return;}
     if(!this.plan)this.planReservation=this.session.pool.reserve(RECORD_CONFIG.maxCandidates*RECORD_CONFIG.maxMetadataBytes);
     this.plan??=planHighlights(this.session.pool.clips,RECORD_CONFIG);
@@ -87,5 +88,5 @@ export class DopaRecordController {
   async share(){const file=this.file;if(!file)return;
     if(navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:'Dopa Record'});}catch(error){if(error.name!=='AbortError')$('record-status').textContent=t('cardFailed');}}else this.download();}
   savePoC(){if(!this.poc)return;const raw=$('poc-exposures').value,report=this.poc.report({background:this.background,recordEnabled:this.enabled,bodyMode:this.app.bodyMode,elapsed:this.app.seconds,exposureObservations:raw===''?null:Math.max(0,Number(raw)),notes:$('poc-notes').value});const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=`dopa-poc-${this.provider}-${Math.floor(this.app.seconds)}s.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  get diagnostics(){return {provider:this.provider,adoption:'pending physical-device PoC',background:this.background||'MY_ROOM',masked:this.masked,safe:this.scene.valid,trackingError:this.trackingError||null,budget:this.session?.controller.profile,ownedBytes:this.session?.pool.usedBytes||0,candidates:this.session?.pool.clips.length||0,stage:STAGE_NAMES[this.app.game?.energy.stageLevel||0],exportMethod:this.output?.method,exportError:this.exportError||null};}
+  get diagnostics(){return {provider:this.provider,adoption:'pending physical-device PoC',background:this.background||'MY_ROOM',masked:this.masked,safe:this.scene.valid,trackingError:this.trackingError||null,budget:this.session?.controller.profile,ownedBytes:this.session?.pool.usedBytes||0,candidates:this.session?.pool.clips.length||0,stage:STAGE_NAMES[this.app.game?.energy.stageLevel||0],recordMime:this.session?.mime,exportMethod:this.output?.method,fallbackReason:this.fallbackReason||null,exportError:this.exportError||null};}
 }

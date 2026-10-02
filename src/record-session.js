@@ -2,16 +2,32 @@
 import {RECORD_CONFIG,recordQuality} from './record-config.js';
 import {BudgetController,HighlightPool} from './highlight-budget.js';
 import {qualityGate} from './highlight-planner.js';
-export function recorderMime(){
+export function recorderMime(Recorder=globalThis.MediaRecorder){
   return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm']
-    .find(type=>globalThis.MediaRecorder?.isTypeSupported(type))||null;
+    .find(type=>Recorder?.isTypeSupported(type))||null;
+}
+export async function preferredRecorderMime({Recorder=globalThis.MediaRecorder,VideoDecoder=globalThis.VideoDecoder,AudioDecoder=globalThis.AudioDecoder}={}){
+  const fallback=recorderMime(Recorder);
+  // Recording support does not imply WebCodecs decode support (notably H.264 on Linux).
+  // Browsers without decoders keep their normal playable format and use Canvas export.
+  if(!fallback||!VideoDecoder?.isConfigSupported||!AudioDecoder?.isConfigSupported)return fallback;
+  for(const [mime,video,audio] of [
+    ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','avc1.42E01E','mp4a.40.2'],
+    ['video/webm;codecs=vp8,opus','vp8','opus']
+  ]){
+    if(!Recorder.isTypeSupported(mime))continue;
+    try{const [v,a]=await Promise.all([VideoDecoder.isConfigSupported({codec:video}),AudioDecoder.isConfigSupported({codec:audio,sampleRate:48000,numberOfChannels:2})]);if(v.supported&&a.supported)return mime;}catch{/* Keep a playable MediaRecorder fallback if probing fails. */}
+  }
+  return fallback;
 }
 export class RecordSession {
   constructor({config=RECORD_CONFIG,validatedMax='LOW',onStatus=()=>{}}={}){
     this.config=config;this.controller=new BudgetController({validatedMax});this.pool=new HighlightPool(this.controller,config);this.canvas=document.createElement('canvas');
     this.quality=recordQuality(this.controller.profile);Object.assign(this.canvas,{width:this.quality.width,height:this.quality.height});
-    this.ctx=this.canvas.getContext('2d');this.onStatus=onStatus;this.sequence=0;this.highestStage=0;this.lastStage=0;this.disposed=false;this.closing=null;
+    // The finished scene is opaque. VP8 must not acquire an unnecessary alpha track.
+    this.ctx=this.canvas.getContext('2d',{alpha:false});this.onStatus=onStatus;this.sequence=0;this.highestStage=0;this.lastStage=0;this.disposed=false;this.closing=null;
     this.mime=recorderMime();if(!this.mime||!this.canvas.captureStream)throw new Error('Recording unavailable');
+    this.mimeReady=false;this.mimeProbe=preferredRecorderMime().then(mime=>{this.mime=mime||this.mime;this.mimeReady=true;});
   }
   note(events,pose,width,height){const c=this.current;if(!c)return;
     for(const e of events){c.motionCount++;if(e.type==='hit')c.hits++;const index=e.type==='exercise'?2:e.wristId==='right_wrist'?1:0;c.actionCounts[index]++;if(e.wristId){const previous=c.lastPoints[e.wristId];if(previous&&Number.isFinite(e.x)&&Number.isFinite(e.y)){const dx=e.x-previous.x,dy=e.y-previous.y;c.actionCounts[Math.abs(dx)>Math.abs(dy)?dx>0?5:6:dy>0?4:3]++;}c.lastPoints[e.wristId]={x:e.x,y:e.y};}}
@@ -27,7 +43,7 @@ export class RecordSession {
     const scale=Math.min(w/scene.width,h/scene.height),dw=scene.width*scale,dh=scene.height*scale,x=(w-dw)/2,y=(h-dh)/2;
     c.drawImage(scene,x,y,dw,dh);c.drawImage(overlay,x,y,dw,dh);c.font='bold 22px system-ui';c.fillStyle='#fff';c.textAlign='left';c.fillText(`${state.energy} ENERGY · ${state.hits} HIT`,24,42);
     if(this.current){const level=state.presentedStageLevel||0;if(level>this.current.stage)this.current.evolutions.push({level,at:seconds-this.current.start});this.current.stage=Math.max(this.current.stage,level);this.current.frames++;this.current.end=seconds;if(seconds-this.current.start>=this.config.clipSeconds)this.stop();}
-    else if(!this.closing&&audio?.ready&&audio.recordStream){this.begin(state,audio.recordStream,seconds,cycle,beatSeconds);}
+    else if(this.mimeReady&&!this.closing&&audio?.ready&&audio.recordStream){this.begin(state,audio.recordStream,seconds,cycle,beatSeconds);}
   }
   begin(state,audioStream,seconds,cycle,beatSeconds){
     const reservation=this.pool.reserve(this.config.reservationBytes);if(!reservation){this.onStatus('limited');return;}

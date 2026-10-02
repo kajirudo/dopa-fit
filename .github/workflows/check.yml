@@ -4,10 +4,11 @@ permissions:
   contents: read
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: npm ci
@@ -22,3 +23,13 @@ jobs:
       - run: npm run test:setup-browser
       - run: npm run test:experience-browser
       - run: npm run test:record-browser
+      - name: Preserve browser reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-checks-${{ github.run_attempt }}
+          path: |
+            test-results/*.json
+            test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 7

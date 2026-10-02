@@ -15,7 +15,7 @@ async function exportBunny(plan,record,{profile,config,onProgress,signal}){
   const mp4=await m.canEncodeVideo('avc',{width:q.width,height:q.height})&&await m.canEncodeAudio('aac');
   const codec=mp4?'avc':'vp8',audioCodec=mp4?'aac':'opus';
   if(!await m.canEncodeVideo(codec,{width:q.width,height:q.height})||!await m.canEncodeAudio(audioCodec))throw new Error('Native encoding unavailable');
-  const canvas=document.createElement('canvas');canvas.width=q.width;canvas.height=q.height;const ctx=canvas.getContext('2d');
+  const canvas=document.createElement('canvas');canvas.width=q.width;canvas.height=q.height;const ctx=canvas.getContext('2d',{alpha:false});
   const pages=new Map(),pageSize=256*1024;let length=0;
   const target=new m.StreamTarget(new WritableStream({write({data,position}){
     abort(signal);if(position+data.length>config.maxOutputBytes)throw new Error('Output capacity exceeded');length=Math.max(length,position+data.length);
@@ -31,6 +31,7 @@ async function exportBunny(plan,record,{profile,config,onProgress,signal}){
     for(const [index,clip] of plan.segments.entries()){
       abort(signal);input=new m.Input({source:new m.BlobSource(clip.blob,{maxCacheSize:config.reservationBytes}),formats:m.ALL_FORMATS});
       const vt=await input.getPrimaryVideoTrack(),atTrack=await input.getPrimaryAudioTrack();if(!vt||!atTrack)throw new Error('Missing media track');
+      if(!await vt.canDecode()||!await atTrack.canDecode())throw new Error('Source codec requires Canvas playback export');
       const start=clip.offset||0,end=start+clip.duration,base=at,hasNext=index<plan.segments.length-1,fade=hasNext?fadeFrames/48000:0;
       await Promise.all([
         (async()=>{for await(const sample of new m.VideoSampleSink(vt).samples(start,end)){try{abort(signal);const t=Math.max(0,sample.timestamp-start);if(t>=clip.duration-fade)break;
@@ -61,7 +62,7 @@ async function exportBunny(plan,record,{profile,config,onProgress,signal}){
 }
 async function exportCanvas(plan,record,{profile,config,onProgress,signal}){
   const q=recordQuality(profile),canvas=document.createElement('canvas');canvas.width=q.width;canvas.height=q.height;
-  const c=canvas.getContext('2d'),ctx=new (globalThis.AudioContext||globalThis.webkitAudioContext)(),destination=ctx.createMediaStreamDestination();
+  const c=canvas.getContext('2d',{alpha:false}),ctx=new (globalThis.AudioContext||globalThis.webkitAudioContext)(),destination=ctx.createMediaStreamDestination();
   await ctx.resume();if(ctx.state!=='running'){await ctx.close();throw new Error('Audio export requires a tap to retry');}
   const stream=canvas.captureStream(q.fps);destination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
   const mime=recorderMime();if(!mime){stream.getTracks().forEach(t=>t.stop());await ctx.close();throw new Error('Export unavailable');}

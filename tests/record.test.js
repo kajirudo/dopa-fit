@@ -8,6 +8,7 @@ import {crossfade} from '../src/audio-transition.js';
 import {Histogram} from '../src/poc-metrics.js';
 import {MusicEngine} from '../src/music.js';
 import {EnergySystem} from '../src/game.js';
+import {preferredRecorderMime} from '../src/record-session.js';
 const candidate=(id,extra={})=>({id,start:id*4,end:id*4+4,duration:4,quality:1,privacySafe:true,tracking:1,audio:true,motion:.8,hitDensity:1,stage:Math.min(5,Math.floor(id/3)),cycleId:Math.floor(id/3),variant:['meteor','rings','waves','star-rain'][id%4],actions:[id%2,1-id%2,0],evolution:id%3===0?1:0,fever:id>3?1:0,blob:{size:600_000},...extra});
 test('unknown devices stay LOW even after hours of high FPS; validated promotion is slow and downgrade protects capacity',()=>{
   const unknown=new BudgetController();for(let time=0;time<7200000;time+=1000)unknown.observe({fps:60,poseP95:30,faceP95:40,encodeWait:0,dropped:0},time);assert.equal(unknown.profile,'LOW');
@@ -70,3 +71,17 @@ test('all four Supernova variations produce distinct musical lead/fill patterns'
 test('trimming a growth clip keeps its actual evolution moment inside the selected range',()=>{const clips=Array.from({length:20},(_,id)=>candidate(id,{stage:id<3?0:Math.min(5,Math.floor(id/3)),evolution:id===3?1:0,anchor:id===0?'beginning':id===3?'growth:1':null,evolutions:id===3?[{level:1,at:2.9}]:[]}));const plan=planHighlights(clips,{...RECORD_CONFIG,targetDuration:15,storyWeights:{beginning:.15,growth:.1,peak:.75}});const growth=plan.segments.find(c=>c.id===3);assert.ok(growth);assert.ok(growth.duration<4);assert.ok(growth.offset>0);assert.ok(growth.offset<=2.9&&growth.offset+growth.duration>2.9);assert.ok(growth.offset+growth.duration<=4);});
 
 test('PoC leaves missing measurements unavailable and keeps latency histograms at a fixed size',()=>{const h=new Histogram();assert.equal(h.p95,null);for(let i=0;i<100000;i++)h.add(i%100);assert.equal(h.bins.length,201);assert.equal(h.count,100000);assert.equal(h.p95,100);});
+
+test('capture prefers an editable codec when H.264 recording exists but native decoding does not',async()=>{
+  const Recorder={isTypeSupported:()=>true},AudioDecoder={isConfigSupported:async()=>({supported:true})};
+  const VideoDecoder={isConfigSupported:async({codec})=>({supported:codec==='vp8'})};
+  assert.equal(await preferredRecorderMime({Recorder,VideoDecoder,AudioDecoder}),'video/webm;codecs=vp8,opus');
+  assert.equal(await preferredRecorderMime({Recorder,VideoDecoder:{isConfigSupported:async()=>({supported:true})},AudioDecoder}),'video/mp4;codecs=avc1.42E01E,mp4a.40.2');
+});
+test('codec probes preserve playable capture on Safari without decoders, unsupported codecs, or rejected probes',async()=>{
+  const Recorder={isTypeSupported:type=>type.startsWith('video/mp4')};
+  for(const VideoDecoder of [null,{isConfigSupported:async()=>({supported:false})},{isConfigSupported:async()=>{throw new Error('Unsupported configuration');}}]){
+    assert.equal(await preferredRecorderMime({Recorder,VideoDecoder,AudioDecoder:{isConfigSupported:async()=>({supported:false})}}),'video/mp4;codecs=avc1.42E01E,mp4a.40.2');
+  }
+  assert.equal(await preferredRecorderMime({Recorder:{isTypeSupported:()=>false},VideoDecoder:null,AudioDecoder:null}),null);
+});
