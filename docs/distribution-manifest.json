@@ -1,5 +1,5 @@
 {
-  "version": "b55b84b14f410d4c",
+  "version": "9df9ab6c9b602255",
   "files": [
     {
       "path": "LICENSE",
@@ -298,8 +298,8 @@
     },
     {
       "path": "src/optional-pack.js",
-      "bytes": 978,
-      "sha256": "cdf846115e53aeab5fd406fa4910a4682ae25d398fd73b44cfa1e415e337bd7b"
+      "bytes": 1419,
+      "sha256": "f25df984d27b2c4f50b2aebe06c56a343d3b23276a74377be2a909ff5b27deab"
     },
     {
       "path": "src/poc-metrics.js",
