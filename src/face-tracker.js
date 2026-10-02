@@ -17,7 +17,7 @@ export class FaceTracker {
   init(){return this.initializing??=this.initialize().catch(error=>{this.initializing=null;throw error;});}
   async initialize(){
     if(this.ready)return;const generation=this.generation;
-    this.initializationPhase='assets';const {loadRecordPack}=await import('./optional-pack.js');await loadRecordPack();if(generation!==this.generation)throw new DOMException('Cancelled','AbortError');
+    this.initializationPhase='assets-import';const {loadRecordPack,recordPackStatus}=await import('./optional-pack.js');this.packStatus=recordPackStatus;this.initializationPhase='assets';await loadRecordPack();if(generation!==this.generation)throw new DOMException('Cancelled','AbortError');
     this.initializationPhase='models';this.worker=new Worker(new URL('./face-worker.js',import.meta.url));
     await new Promise((resolve,reject)=>{
       const finish=error=>{clearTimeout(timer);this.initializationCancel=null;error?reject(error):resolve();};

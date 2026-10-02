@@ -1,5 +1,5 @@
 {
-  "version": "9df9ab6c9b602255",
+  "version": "937c408475f0b57e",
   "files": [
     {
       "path": "LICENSE",
@@ -233,8 +233,8 @@
     },
     {
       "path": "src/face-tracker.js",
-      "bytes": 4259,
-      "sha256": "9fc2426458487a45eb5f34a8d1b4ef9a710131b2931bd5bfcc971b9fbe5a6e3a"
+      "bytes": 4350,
+      "sha256": "a2fc6563ab1bb689d81518e941c1a296b9d751fdfa207d4f8049dc0ed91fe238"
     },
     {
       "path": "src/face-worker.js",
@@ -328,8 +328,8 @@
     },
     {
       "path": "src/record-controller.js",
-      "bytes": 13549,
-      "sha256": "36f114edace096fe61d093139fdcba29317720e55641c7995d08c0cf7833dca4"
+      "bytes": 13588,
+      "sha256": "e0c111372d4b09a63c49732009a77f7f3e35bd82ba53e759301e42791a2d4650"
     },
     {
       "path": "src/record-session.js",
