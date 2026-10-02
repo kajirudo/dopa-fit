@@ -16,6 +16,7 @@ jobs:
       - run: npm run audit:files
       - run: git diff --exit-code -- cache-manifest.js docs/distribution-manifest.json
       - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:camera-mask-browser
       - run: npm run test:browser
       - run: npm run test:pwa
       - run: npm run test:audio-browser
@@ -23,7 +24,6 @@ jobs:
       - run: npm run test:setup-browser
       - run: npm run test:experience-browser
       - run: npm run test:record-browser
-      - run: npm run test:camera-mask-browser
       - name: Preserve browser reports and screenshots
         if: always()
         uses: actions/upload-artifact@v7

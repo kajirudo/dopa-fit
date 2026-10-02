@@ -13,12 +13,12 @@ export function faceResultIssue(result,now) {
 }
 export const validFaceResult=(result,now)=>faceResultIssue(result,now)===null;
 export class FaceTracker {
-  constructor(provider='detector',{background='MY_ROOM',inputWidth=384}={}){this.provider=provider;this.background=background;this.inputWidth=inputWidth;this.status='unvalidated';this.busy=false;this.sequence=0;this.generation=0;this.ready=false;this.pending=null;this.latencies=[];}
+  constructor(provider='detector',{background='MY_ROOM',inputWidth=384}={}){this.provider=provider;this.background=background;this.inputWidth=inputWidth;this.status='unvalidated';this.initializationPhase='idle';this.busy=false;this.sequence=0;this.generation=0;this.ready=false;this.pending=null;this.latencies=[];}
   init(){return this.initializing??=this.initialize().catch(error=>{this.initializing=null;throw error;});}
   async initialize(){
     if(this.ready)return;const generation=this.generation;
-    const {loadRecordPack}=await import('./optional-pack.js');await loadRecordPack();if(generation!==this.generation)throw new DOMException('Cancelled','AbortError');
-    this.worker=new Worker(new URL('./face-worker.js',import.meta.url));
+    this.initializationPhase='assets';const {loadRecordPack}=await import('./optional-pack.js');await loadRecordPack();if(generation!==this.generation)throw new DOMException('Cancelled','AbortError');
+    this.initializationPhase='models';this.worker=new Worker(new URL('./face-worker.js',import.meta.url));
     await new Promise((resolve,reject)=>{
       const finish=error=>{clearTimeout(timer);this.initializationCancel=null;error?reject(error):resolve();};
       const timer=setTimeout(()=>finish(new Error('Face initialization timeout')),30000);
@@ -28,7 +28,7 @@ export class FaceTracker {
       this.worker.postMessage({type:'init',provider:this.provider,background:this.background});
     });
     if(generation!==this.generation||!this.worker)throw new DOMException('Cancelled','AbortError');
-    this.ready=true;this.worker.onmessage=event=>{const r=event.data;const p=this.pending;this.pending=null;this.busy=false;
+    this.initializationPhase='ready';this.ready=true;this.worker.onmessage=event=>{const r=event.data;const p=this.pending;this.pending=null;this.busy=false;
       if(!p||r.id!==p.id){r.bitmap?.close();return;}
       clearTimeout(p.timer);
       if(r.type==='error')p.reject(new Error(r.message));else {this.latencies.push(performance.now()-r.capturedAt);if(this.latencies.length>120)this.latencies.shift();p.resolve(r);}};
@@ -48,5 +48,5 @@ export class FaceTracker {
       });
     }catch(error){this.busy=false;throw error;}
   }
-  dispose(){this.generation++;this.initializationCancel?.();this.ready=false;this.initializing=null;this.worker?.terminate();this.worker=null;const p=this.pending;this.pending=null;clearTimeout(p?.timer);p?.resolve(null);this.busy=false;}
+  dispose(){this.initializationPhase='idle';this.generation++;this.initializationCancel?.();this.ready=false;this.initializing=null;this.worker?.terminate();this.worker=null;const p=this.pending;this.pending=null;clearTimeout(p?.timer);p?.resolve(null);this.busy=false;}
 }
