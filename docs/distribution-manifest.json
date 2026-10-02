@@ -1,5 +1,5 @@
 {
-  "version": "76e7805d894e0e86",
+  "version": "fa63c3f0a76eba6f",
   "files": [
     {
       "path": "LICENSE",
@@ -238,8 +238,8 @@
     },
     {
       "path": "src/face-worker.js",
-      "bytes": 3191,
-      "sha256": "f8251c832668b0f9b03b9f822c534ee24da6c5ac98c66a0787f1443239cec5ed"
+      "bytes": 3296,
+      "sha256": "95404f9f0f54c04e7febaf7dba81fd5fa264b18713fcacf502d8c2f3ff099ac1"
     },
     {
       "path": "src/feedback.js",

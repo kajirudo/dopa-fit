@@ -34,7 +34,8 @@ self.onmessage=async event=>{
       });
     }
     let segmentation=null;
-    if(m.background!=='MY_ROOM'){
+    // An unsafe face frame will be discarded; avoid unnecessary background inference.
+    if(faces.length===1&&m.background!=='MY_ROOM'){
       await prepareSegmenter();
       segmenter.segmentForVideo(bitmap,capturedAt,r=>{// Pinned v1 model has a single 'selfie' sigmoid output, not a two-class argmax.
         const masks=r.confidenceMasks,mask=masks?.length===1?masks[0]:masks?.[1];if(!mask)return;const confidence=mask.getAsFloat32Array(),data=new Uint8Array(confidence.length);for(let i=0;i<data.length;i++)data[i]=confidence[i]>=.65?1:0;segmentation={width:mask.width,height:mask.height,data};});
