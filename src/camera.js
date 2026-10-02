@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
+export function initialCameraFit(settings={}) {
+  // Old full-body sessions acquired contain automatically; migrate that default once.
+  if(settings.bodyMode==='full'&&settings.cameraFit==='contain'&&settings.cameraViewVersion!==2)return 'cover';
+  return settings.cameraFit==='contain'?'contain':'cover';
+}
 export class CameraManager {
   constructor(video) { this.video = video; this.generation = 0; this.stream = null; }
   async start() {
     const generation = ++this.generation;
     if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw new Error('HTTPSまたはlocalhostで開いてください');
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'user' }, width: { ideal: 480 }, height: { ideal: 640 }, aspectRatio: { ideal: .75 }, frameRate: { ideal: 30, max: 30 } } });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'user' }, width: { ideal: 480 }, height: { ideal: 854 }, aspectRatio: { ideal: 9/16 }, frameRate: { ideal: 30, max: 30 } } });
     if (generation !== this.generation) { stream.getTracks().forEach(t => t.stop()); throw new DOMException('Cancelled', 'AbortError'); }
     this.stream = stream;
     this.video.srcObject = stream;

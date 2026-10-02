@@ -7,8 +7,8 @@
 ## 実装
 
 - `game.js`：獲得済みstageLevel、表示中presentedStageLevel、cycleIdを分離。100 ENERGYで成長し、Pause／RESTで下がらない。HIT音は獲得段階を即時反映。音楽と仮面・色の表示は小節頭に同期する。SUPERNOVA以降もENERGYを繰り越して波を繰り返し、流星・光輪・左右ウェーブ・星雨の変奏を循環する。
-- `face-tracker.js`／`face-worker.js`：Detector／Landmarkerを同じ入力幅・CPU delegate・顔カバーに接続。方式は**未確定**で、初期のDetectorは仮の実装候補。`?faceTracker=landmarker`でも切り替えられる。推論はWorker内、転送中のフレームは1枚だけ。
-- `safe-scene.js`：同じ凍結フレームの追跡結果を使い、非公開Canvasで不透明な顔カバーを先に描く。装飾や回転で穴を開けない。未検出・複数人・異常値・200ms超では実写を遮断する。MY ROOM／BLUR ROOM／DOPA STAGEのプレビューと録画は同じ合成結果を使う。背景分離に失敗してもMY ROOMへ戻さない。固定したSelfieSegmenter v1の単一selfie信頼度出力を使い、背景と人物の判定を作る。
+- `face-tracker.js`／`face-worker.js`：Detector／Landmarkerを同じ入力幅・CPU delegate・顔カバーに接続。方式は**未確定**で、初期のDetectorは仮の実装候補。`?faceTracker=landmarker`でも切り替えられる。推論はWorker内、転送中のフレームは1枚だけ。両方式の入力幅は384px、要求間隔は100ms以上。選択した背景のモデルは初期化中に読み込み、初回フレームのタイムアウトを避ける。初期化失敗やWorker停止後は自動で再試行する。
+- `safe-scene.js`：同じ凍結フレームの追跡結果を使い、非公開Canvasで不透明な顔カバーを先に描く。装飾や回転で穴を開けない。顔周辺の不透明カバーは検出枠の幅1.28倍・高さ1.34倍に収め、胸元や手を覆う余白を減らす。手の位置には前面の手形カーソルを描く。顔カバー内へ実写の手を復元する処理は行わない。未検出・複数人・異常値・200ms超・画面を覆う大きすぎる顔検出では実写を遮断し、Poseに追従するアバターと原因に応じた案内を表示する。この区間は録画候補に含めない。MY ROOM／BLUR ROOM／DOPA STAGEのプレビューと録画は同じ合成結果を使う。背景分離に失敗してもMY ROOMへ戻さない。固定したSelfieSegmenter v1の単一selfie信頼度出力を使い、背景と人物の判定を作る。
 - `highlight-budget.js`：未知端末はLOW 24MiB。検証済みの上限を渡した場合だけNORMAL 48MiB／HIGH 64MiBへの昇格を許す。10秒悪化で降格、60秒安定で昇格。保持素材、メタデータ、収録中の予約、Plannerメタデータを容量に含める。モデル・Canvas・ネイティブエンコーダのメモリは別に実測が必要。
 - `record-session.js`：独立再生可能な約4秒のクリップごとにMediaRecorderを開始／終了する。録画対応とは別に編集用デコード対応も確認し、MP4素材を編集できない環境では対応するVP8／Opus素材を選ぶ。timesliceは容量監視に使い、同じ録画内の断片から1つの完成クリップを確定する。別録画の断片を単純連結しない。マイクは要求せず、ゲーム音の出力だけを収録する。操作UI・診断表示は収録しない。
 - `highlight-planner.js`：品質ゲートの後、序盤・進化・最高段階を確保する。動き・HIT密度・進化・新規性・時間重複・同一Cycle・動作／方向・構図・変奏の類似を使って追加価値を評価する。同一FEVERを原則2区間・12秒以内にし、素材が足りない場合だけ緩和する。時間順を維持し、実際の進化オフセットを含む位置で切り出す。未到達の段階を捏造しない。

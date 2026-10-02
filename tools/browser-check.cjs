@@ -33,7 +33,7 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({path:path.join(root,'test-results/mobile.png'),fullPage:true}); check('Landing and 390px portrait layout');
-    await page.locator('#body-mode').selectOption('full');assert.equal(await page.evaluate(()=>window.testApp.bodyMode),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'contain');
+    await page.locator('#body-mode').selectOption('full');assert.equal(await page.evaluate(()=>window.testApp.bodyMode),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'cover');
     await page.locator('#body-mode').selectOption('upper');assert.equal(await page.locator('#camera-fit').inputValue(),'cover');check('Upper / full-body modes selectable before START with suitable camera framing');
     await page.locator('#demo').click(); await page.waitForFunction(()=>window.testApp.state==='PLAYING');await page.locator('#practice-skip').click();
     assert.equal(await page.evaluate(()=>window.testApp.audio.ready),true);
@@ -161,10 +161,10 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
       return{added:a.game.energy.hits-initial,held:a.mapped.hands.left_wrist?.held,radius:hand.radius,visible:!!a.renderer.markers.left_wrist};});
     assert.equal(assist.added,1);assert.equal(assist.held,true);assert.equal(assist.visible,true);assert.ok(assist.radius>=20);check('Low-confidence near-edge HIT and brief display-only hand retention through AppController');
     const near=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera');a.beginCalibration();
-      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.78,score:1},right_shoulder:{x:.9,y:.78,score:1},left_wrist:{x:.47,y:.65,score:1},right_wrist:{x:.53,y:.65,score:1}}});await new Promise(r=>setTimeout(r,50));}
+      for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.02,y:.78,score:1},right_shoulder:{x:.98,y:.78,score:1},left_wrist:{x:.47,y:.65,score:1},right_wrist:{x:.53,y:.65,score:1}}});await new Promise(r=>setTimeout(r,50));}
       if(a.state!=='COUNTDOWN')throw Error('Close upper-body calibration failed');const {viewport}=await import('./src/coordinates.js'),c=a.game.calibration,s=viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover');
       a.state='PLAYING';document.getElementById('stage-scrim').classList.add('hidden');const t=a.game.targets.targets[0],norm=(x,y)=>({x:1-(x-s.x)/s.width,y:(y-s.y)/s.height,score:1});
-      const send=(x,y)=>{const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.1,y:.78,score:1},right_shoulder:{x:.9,y:.78,score:1},left_wrist:norm(x,y)}});};
+      const send=(x,y)=>{const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points:{left_shoulder:{x:.02,y:.78,score:1},right_shoulder:{x:.98,y:.78,score:1},left_wrist:norm(x,y)}});};
       send(c.center.x,a.renderer.height*.85);send(t.x,t.y);a.updateUI(performance.now());a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
       a.renderer.celebration=null;a.renderer.draw(a.mapped,a.game,performance.now(),.016,a.seconds);
       const box=a.renderer.mascot,visible=a.renderer.mascotVisible,active=a.game.targets.active[0],old={x:active.x,y:active.y};
@@ -175,12 +175,12 @@ const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.j
     await page.screenshot({path:path.join(root,'test-results/close-upper.png')});check('Synthetic close upper body wider than portrait crop → calibration → reachable target → HIT');
     await page.locator('#pause').click();assert.equal(await page.evaluate(()=>window.testApp.camera.stream),null);
     const preserved=await page.evaluate(()=>({energy:window.testApp.game.energy.energy,level:window.testApp.game.energy.feverLevel}));
-    await page.locator('#body-mode-settings').selectOption('full');assert.equal(await page.locator('#body-mode').inputValue(),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'contain');
+    await page.locator('#body-mode-settings').selectOption('full');assert.equal(await page.locator('#body-mode').inputValue(),'full');assert.equal(await page.locator('#camera-fit').inputValue(),'cover');
     await page.locator('#settings-close').click();await page.waitForFunction(()=>window.testApp.state==='CALIBRATING');
     const full=await page.evaluate(async()=>{const a=window.testApp,v=document.getElementById('camera');cancelAnimationFrame(a.raf);a.generation++;while(a.pose.busy)await new Promise(r=>setTimeout(r,10));a.beginCalibration();
-      const points={left_shoulder:{x:.36,y:.3,score:1},right_shoulder:{x:.64,y:.3,score:1},left_wrist:{x:.3,y:.6,score:1},right_wrist:{x:.7,y:.6,score:1}};let waiting;
+      const {viewport}=await import('./src/coordinates.js'),rect=viewport(v.videoWidth,v.videoHeight,a.renderer.width,a.renderer.height,'cover'),norm=(x,y)=>({x:1-(x*a.renderer.width-rect.x)/rect.width,y:(y*a.renderer.height-rect.y)/rect.height,score:1});const points={left_shoulder:norm(.36,.3),right_shoulder:norm(.64,.3),left_wrist:norm(.3,.6),right_wrist:norm(.7,.6)};let waiting;
       for(let i=0;i<20;i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points});await new Promise(r=>setTimeout(r,50));}waiting=a.state;
-      points.left_hip={x:.4,y:.7,score:1};points.right_hip={x:.6,y:.7,score:1};
+      points.left_hip=norm(.4,.7);points.right_hip=norm(.6,.7);
       for(let i=0;i<22&&a.state==='CALIBRATING';i++){const now=performance.now();a.processFrame({id:++a.pose.sequence,capturedAt:now-1,completedAt:now,width:v.videoWidth,height:v.videoHeight,points});await new Promise(r=>setTimeout(r,50));}
       return{waiting,state:a.state,mode:a.game.calibration.bodyMode,energy:a.game.energy.energy,level:a.game.energy.feverLevel};});
     assert.equal(full.waiting,'CALIBRATING');assert.equal(full.state,'COUNTDOWN');assert.equal(full.mode,'full');assert.equal(full.energy,preserved.energy);assert.equal(full.level,preserved.level);check('Switch to full-body preserves progress, waits for hips and calibrates with hips visible');

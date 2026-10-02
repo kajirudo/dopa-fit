@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT
+// Synthetic frames and fake camera; physical iPhone tracking remains a separate gate.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const fs=require('node:fs/promises'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.wasm':'application/wasm','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
+(async()=>{let server,browser,page;const checks=[],reports=[],errors=[];
+try{
+  const base=await new Promise(resolve=>{server=http.createServer(async(req,res)=>{try{const u=new URL(req.url,'http://localhost'),file=path.resolve(root,'.'+(u.pathname==='/'?'/index.html':u.pathname));if(!file.startsWith(root+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');res.end(await fs.readFile(file));}catch{res.writeHead(404);res.end();}}).listen(0,'127.0.0.1',()=>resolve(`http://127.0.0.1:${server.address().port}`));});
+  browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--enable-unsafe-swiftshader']});
+  const context=await browser.newContext({viewport:{width:390,height:844},locale:'ja-JP',permissions:['camera']});page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base);await page.evaluate(()=>localStorage.setItem('dopa-fit:settings',JSON.stringify({bodyMode:'full',cameraFit:'contain'})));await page.reload();
+  assert.equal(await page.locator('#camera-fit').inputValue(),'cover');checks.push('Legacy full-body setting migrates to a full-screen camera');
+  await page.locator('#record-settings summary').click();await page.locator('#face-mask').check();await page.locator('#background-mode').selectOption('BLUR_ROOM');
+  await page.evaluate(async()=>{window.testApp=(await import('./src/app.js')).app;const {FaceTracker}=await import('./src/face-tracker.js'),init=FaceTracker.prototype.init;window.faceInitAttempts=0;FaceTracker.prototype.init=function(){faceInitAttempts++;return faceInitAttempts===1?Promise.reject(new Error('Synthetic tracker start failure')):init.call(this);};});
+  await page.locator('#start').click();await page.waitForFunction(()=>testApp.recordFeature.tracker?.ready&&faceInitAttempts>=2,{},{timeout:60000});
+  assert.equal(await page.evaluate(()=>testApp.recordFeature.trackingError),null);assert.equal(await page.evaluate(()=>testApp.recordFeature.tracker.background),'BLUR_ROOM');checks.push('An initial tracking error automatically reconnects with the selected background preloaded, without restarting the workout');
+  const full=await page.evaluate(()=>{const a=testApp,v=document.getElementById('camera');return {fit:getComputedStyle(v).objectFit,videoWidth:v.videoWidth,videoHeight:v.videoHeight,stage:document.getElementById('stage').getBoundingClientRect().height,masked:getComputedStyle(v).opacity};});
+  assert.equal(full.fit,'cover');assert.ok(full.stage>=844*.95);assert.equal(full.masked,'0');reports.push(full);checks.push('Full-body masked mode fills the stage and never reveals the raw video element');
+  await page.waitForFunction(()=>testApp.recordFeature.scene.issue==='no-face');assert.ok((await page.locator('#face-notice').innerText()).includes('顔がカメラ'));
+  const notice=await page.locator('#face-notice').boundingBox(),panel=await page.locator('#calibration-panel').boundingBox();assert.ok(notice.y+notice.height<=panel.y);checks.push('Mask framing guidance stays clear of the calibration card');await fs.mkdir(path.join(root,'test-results'),{recursive:true});await page.screenshot({path:path.join(root,'test-results/mask-recovery-avatar.png')});checks.push('Missing-face fallback shows an avatar and a specific framing instruction');
+  await page.evaluate(()=>{testApp.recordFeature.tracker.dispose();});await page.waitForFunction(()=>testApp.recordFeature.tracker?.ready,{},{timeout:60000});checks.push('A lost worker reconnects automatically during the same session');
+  // Exact colored pixels distinguish face privacy, a visible real hand, and the front cursor.
+  const pixels=await page.evaluate(async()=>{
+    const {SafeScene}=await import('./src/safe-scene.js'),{Renderer}=await import('./src/renderer.js');
+    const source=document.createElement('canvas');source.width=400;source.height=600;const s=source.getContext('2d');s.fillStyle='#416b5e';s.fillRect(0,0,400,600);s.fillStyle='red';s.fillRect(140,90,100,138);s.fillStyle='blue';s.fillRect(170,270,40,40);
+    const canvas=document.createElement('canvas');canvas.width=400;canvas.height=600;const scene=new SafeScene(canvas),face={x:.35,y:.15,width:.25,height:.23,roll:.2};
+    const compose=async faces=>scene.compose({capturedAt:performance.now(),faces,bitmap:await createImageBitmap(source)},{background:'MY_ROOM',level:2});
+    const safe=await compose([face]),facePixel=Array.from(scene.ctx.getImageData(210,200,1,1).data),handPixel=Array.from(scene.ctx.getImageData(210,280,1,1).data);
+    const overlay=document.createElement('canvas');overlay.width=400;overlay.height=600;const renderer=new Renderer(overlay);Object.assign(renderer,{width:400,height:600,masked:true});renderer.particles.reduced=true;const now=performance.now();renderer.draw({capturedAt:now,points:{left_wrist:{x:210,y:200,valid:true}}},null,now,.016,0);scene.ctx.drawImage(overlay,0,0);const frontHand=Array.from(scene.ctx.getImageData(210,206,1,1).data);
+    const recovered=await compose([face]);scene.check(scene.lastSafeAt+201,2);const stale=!scene.valid;scene.avatar(null,400,600,2,performance.now());const avatarPixel=Array.from(scene.ctx.getImageData(200,320,1,1).data);
+    const giant=await compose([{x:.01,y:.01,width:.9,height:.85,roll:0}]),giantIssue=scene.issue;
+    const again=await compose([face]);return {safe,facePixel,handPixel,frontHand,recovered,stale,avatarPixel,giant,giantIssue,again};
+  });
+  assert.equal(pixels.safe,true);assert.notDeepEqual(pixels.facePixel,[255,0,0,255]);assert.deepEqual(pixels.handPixel,[0,0,255,255]);assert.deepEqual(pixels.frontHand,[255,177,146,255]);checks.push('Compact face shield hides every face pixel while a real hand below the chin remains visible; the palm cursor renders in front');
+  assert.equal(pixels.recovered,true);assert.equal(pixels.stale,true);assert.notDeepEqual(pixels.avatarPixel,[16,44,41,255]);assert.equal(pixels.giant,false);assert.equal(pixels.giantIssue,'too-close');assert.equal(pixels.again,true);reports.push(pixels);checks.push('Stale and oversized face results fail closed, show an avatar, then accept a fresh safe frame');
+  await page.locator('#pause').click();await page.locator('#camera-fit').selectOption('contain');await page.evaluate(()=>testApp.finish());assert.equal(await page.evaluate(()=>testApp.state),'FINISHED');await page.reload();assert.equal(await page.locator('#camera-fit').inputValue(),'contain');checks.push('An explicit Show more choice persists after the one-time migration');
+  assert.deepEqual(errors,[]);await fs.writeFile(path.join(root,'test-results/camera-mask-browser-report.json'),JSON.stringify({status:'passed',environment:'Desktop Chromium with synthetic frames; not physical iPhone acceptance',checks,reports},null,2));console.log(JSON.stringify({status:'passed',checks,reports}));
+}catch(error){console.error(error);process.exitCode=1;await fs.mkdir(path.join(root,'test-results'),{recursive:true});await page?.screenshot({path:path.join(root,'test-results/camera-mask-failure.png')}).catch(()=>{});await fs.writeFile(path.join(root,'test-results/camera-mask-browser-report.json'),JSON.stringify({status:'failed',checks,reports,error:String(error),errors},null,2));}finally{await browser?.close();server?.close();}
+})();

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { DopaRecordController } from './record-controller.js';
-import { CameraManager } from './camera.js';
+import { CameraManager, initialCameraFit } from './camera.js';
 import { PoseDetector } from './pose.js';
 import { mapPose, distance } from './coordinates.js';
 import { HandTracker } from './hands.js';
@@ -57,13 +57,13 @@ export class AppController {
     this.bodyMode = settings.bodyMode === 'full' ? 'full' : 'upper';
     for(const id of ['body-mode','body-mode-settings','calibration-mode']) {
       $(id).value=this.bodyMode;
-      $(id).onchange=()=>{this.bodyMode=$(id).value;for(const other of ['body-mode','body-mode-settings','calibration-mode'])$(other).value=this.bodyMode;$('camera-fit').value=this.bodyMode==='full'?'contain':'cover';$('play').classList.toggle('fit-camera',$('camera-fit').value==='contain');this.bodyHint();this.saveSettings();if(this.state==='CALIBRATING')this.beginCalibration();};
+      $(id).onchange=()=>{this.bodyMode=$(id).value;for(const other of ['body-mode','body-mode-settings','calibration-mode'])$(other).value=this.bodyMode;this.bodyHint();this.saveSettings();if(this.state==='CALIBRATING')this.beginCalibration();};
     }
     for(const el of document.querySelectorAll('[data-language]'))el.onchange=()=>this.changeLanguage(el.value);
     this.bodyHint();
     $('reach').value = settings.reach === 'small' ? 'small' : 'wide';
     $('reach').onchange = () => this.saveSettings();
-    $('camera-fit').value = ['contain','cover'].includes(settings.cameraFit) ? settings.cameraFit : this.bodyMode==='full'?'contain':'cover';
+    $('camera-fit').value = initialCameraFit(settings);
     $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain');
     $('camera-fit').onchange = () => { $('play').classList.toggle('fit-camera', $('camera-fit').value === 'contain'); this.saveSettings(); };
     $('volume').value = Math.min(100, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 55)); this.audio.volume = Number($('volume').value) / 100;
@@ -80,7 +80,7 @@ export class AppController {
   }
   bodyHint() { $('body-hint').textContent=t(this.bodyMode==='full'?'hintFull':'hintUpper'); }
   get courseCue() { return t(`${this.bodyMode==='upper'?'upper':'full'}Cue${Math.min(5,Math.floor(this.seconds/30))}`); }
-  saveSettings() { this.store.write('settings', { language:getLanguage(), volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, bodyMode: this.bodyMode, ...this.recordFeature?.settings }); }
+  saveSettings() { this.store.write('settings', { language:getLanguage(), volume: Number($('volume').value), reduced: $('reduced').checked, reach: $('reach').value, cameraFit: $('camera-fit').value, cameraViewVersion:2, bodyMode: this.bodyMode, ...this.recordFeature?.settings }); }
   updateAudio() {
     const quiet = this.audio.muted || this.audio.volume === 0;
     $('mute').textContent = t(this.audio.muted ? 'soundOff' : 'soundOn'); $('mute').setAttribute('aria-pressed', String(this.audio.muted));

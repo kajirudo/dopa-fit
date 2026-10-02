@@ -9,9 +9,9 @@ export class PoCMetrics {
   constructor(provider){this.provider=provider;this.startedAt=new Date().toISOString();this.face=new Histogram();this.pose=new Histogram();this.frames=0;this.frameMs=0;this.safe=0;this.fallback=0;this.maxOwnedBytes=0;this.maxCandidates=0;this.samples=0;}
   frame(dt,safe){this.frames++;this.frameMs+=dt*1000;if(safe)this.safe++;else this.fallback++;}
   sample(metrics,diagnostics){this.samples++;this.maxOwnedBytes=Math.max(this.maxOwnedBytes,diagnostics.ownedBytes);this.maxCandidates=Math.max(this.maxCandidates,diagnostics.candidates);}
-  report({background,recordEnabled,bodyMode,elapsed,exposureObservations=null,notes=''}){
+  report({background,inputWidth=384,recordEnabled,bodyMode,elapsed,exposureObservations=null,notes=''}){
     return {schema:1,provider:this.provider,adoption:'UNVALIDATED',startedAt:this.startedAt,endedAt:new Date().toISOString(),userAgent:navigator.userAgent,
-      settings:{inputWidth:512,delegate:'CPU',background,recordEnabled,bodyMode},elapsedSeconds:elapsed,
+      settings:{inputWidth,delegate:'CPU',background,recordEnabled,bodyMode},elapsedSeconds:elapsed,
       face:{samples:this.face.count,p95ms:this.face.p95,maxMs:this.face.count?this.face.maximum:null,safeFrames:this.safe,fallbackFrames:this.fallback,fallbackFraction:this.fallback/Math.max(1,this.frames)},
       pose:{samples:this.pose.count,p95ms:this.pose.p95,maxMs:this.pose.count?this.pose.maximum:null},canvas:{frames:this.frames,averageFPS:this.frameMs?this.frames*1000/this.frameMs:null},
       retainedMedia:{maxOwnedBytes:this.maxOwnedBytes,maxCandidates:this.maxCandidates},

@@ -170,6 +170,14 @@ export class Renderer {
       ctx.globalAlpha=opacity*.2;ctx.fillStyle=color;ctx.beginPath();ctx.arc(marker.x,marker.y,p.radius||20,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=opacity*.7;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
       ctx.globalAlpha=opacity;ctx.fillStyle = color; ctx.beginPath(); ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();ctx.globalAlpha=1;
+      if(this.masked){
+        // A clearly visible palm cursor stays in front of the private face layer.
+        // It uses wrist position; no camera pixels are restored through the face shield.
+        const size=Math.min(25,Math.max(18,p.radius||20));ctx.save();ctx.translate(marker.x,marker.y);ctx.globalAlpha=opacity;ctx.lineCap='round';ctx.lineJoin='round';
+        ctx.strokeStyle='#fff';ctx.lineWidth=size*.24;
+        const fingers=()=>{ctx.beginPath();for(const [i,x] of [-.27,-.09,.09,.27].entries()){ctx.moveTo(x*size,0);ctx.lineTo(x*size,-[.52,.72,.8,.58][i]*size);}ctx.moveTo(-size*.24,size*.22);ctx.lineTo(-size*.55,-size*.09);ctx.stroke();};fingers();ctx.strokeStyle=color;ctx.lineWidth=size*.16;fingers();
+        ctx.fillStyle=color;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(-size*.38,-size*.04,size*.76,size*.65,size*.15);else ctx.rect(-size*.38,-size*.04,size*.76,size*.65);ctx.fill();ctx.stroke();ctx.restore();
+      }
     }
     this.particles.update(dt); this.particles.draw(ctx);
     this.rewards = (this.rewards || []).filter(reward => now - reward.at < 650);

@@ -3,6 +3,11 @@
 const vision=import('../optional/vision/vision_bundle.mjs');
 const root=new URL('../',self.location.href);
 let tracker,segmenter,provider;
+async function prepareSegmenter(){
+  const {FilesetResolver,ImageSegmenter}=await vision;
+  segmenter??=await ImageSegmenter.createFromOptions(await FilesetResolver.forVisionTasks(new URL('optional/vision/wasm',root).href),{
+    baseOptions:{delegate:'CPU',modelAssetPath:new URL('optional/models/selfie-segmenter.tflite',root).href},runningMode:'VIDEO',outputCategoryMask:false,outputConfidenceMasks:true});
+}
 self.onmessage=async event=>{
   const m=event.data;
   try {
@@ -12,6 +17,7 @@ self.onmessage=async event=>{
       const baseOptions={delegate:'CPU',modelAssetPath:new URL(`optional/models/face-${provider==='landmarker'?'landmarker.task':'detector.tflite'}`,root).href};
       tracker=provider==='landmarker'?await FaceLandmarker.createFromOptions(files,{baseOptions,runningMode:'VIDEO',numFaces:2,minFaceDetectionConfidence:.65,minTrackingConfidence:.65,outputFacialTransformationMatrixes:true})
         :await FaceDetector.createFromOptions(files,{baseOptions,runningMode:'VIDEO',minDetectionConfidence:.65});
+      if(m.background&&m.background!=='MY_ROOM')await prepareSegmenter();
       self.postMessage({type:'ready'});return;
     }
     const {bitmap,capturedAt}=m;let faces=[];
@@ -29,8 +35,7 @@ self.onmessage=async event=>{
     }
     let segmentation=null;
     if(m.background!=='MY_ROOM'){
-      const {FilesetResolver,ImageSegmenter}=await vision;segmenter??=await ImageSegmenter.createFromOptions(await FilesetResolver.forVisionTasks(new URL('optional/vision/wasm',root).href),{
-        baseOptions:{delegate:'CPU',modelAssetPath:new URL('optional/models/selfie-segmenter.tflite',root).href},runningMode:'VIDEO',outputCategoryMask:false,outputConfidenceMasks:true});
+      await prepareSegmenter();
       segmenter.segmentForVideo(bitmap,capturedAt,r=>{// Pinned v1 model has a single 'selfie' sigmoid output, not a two-class argmax.
         const masks=r.confidenceMasks,mask=masks?.length===1?masks[0]:masks?.[1];if(!mask)return;const confidence=mask.getAsFloat32Array(),data=new Uint8Array(confidence.length);for(let i=0;i<data.length;i++)data[i]=confidence[i]>=.65?1:0;segmentation={width:mask.width,height:mask.height,data};});
     }

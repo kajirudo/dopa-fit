@@ -15,6 +15,7 @@
     "test:music-render": "node tools/music-render-check.cjs",
     "test:setup-browser": "node tools/setup-browser-check.cjs",
     "test:experience-browser": "node tools/experience-browser-check.cjs",
-    "test:record-browser": "node tools/record-browser-check.cjs"
+    "test:record-browser": "node tools/record-browser-check.cjs",
+    "test:camera-mask-browser": "node tools/camera-mask-browser-check.cjs"
   }
 }
