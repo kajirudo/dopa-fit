@@ -2,7 +2,10 @@
 import {viewport} from './coordinates.js';
 import {faceResultIssue} from './face-tracker.js';
 import {feverStage} from './fever.js';
-export function maskBounds(f){return {x:f.x-f.width*.14,y:f.y-f.height*.18,width:f.width*1.28,height:f.height*1.34,radius:Math.min(f.width,f.height)*.1};}
+// Only the already-masked snapshot may bridge a brief inference gap.
+// Recording still requires the original 200ms freshness limit.
+export const SAFE_DISPLAY_HOLD_MS=450;
+export function maskBounds(f){return {x:f.x-f.width*.1,y:f.y-f.height*.14,width:f.width*1.2,height:f.height*1.24,radius:Math.min(f.width,f.height)*.08};}
 export class SafeScene {
   constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.layer=document.createElement('canvas');this.mask=document.createElement('canvas');this.lastSafeAt=-Infinity;this.valid=false;}
   fallback(level=0,issue=this.issue||'checking'){const c=this.ctx,w=this.canvas.width,h=this.canvas.height;c.fillStyle='#102c29';c.fillRect(0,0,w,h);c.fillStyle=level?feverStage(level).color:'#85d9c0';c.globalAlpha=.15;c.beginPath();c.arc(w/2,h*.42,w*.4,0,Math.PI*2);c.fill();c.globalAlpha=1;this.valid=false;this.issue=issue;}
@@ -44,16 +47,18 @@ export class SafeScene {
     const color=level?feverStage(level).color:'#85d9c0',cx=f.x+f.width/2,cy=f.y+f.height*.5,b=maskBounds(f);
     // Cover stays axis-aligned and fully opaque. Rotating decorations never opens holes.
     c.fillStyle='#152e36';c.beginPath();if(c.roundRect)c.roundRect(b.x,b.y,b.width,b.height,b.radius);else c.rect(b.x,b.y,b.width,b.height);c.fill();
-    c.save();c.translate(cx,cy);c.rotate(f.roll);c.strokeStyle=color;c.fillStyle=color;c.lineWidth=Math.max(2,f.width*.035);
+    // Decorations share the shield's silhouette instead of covering nearby hands.
+    c.save();c.clip();c.translate(cx,cy);c.rotate(f.roll);c.strokeStyle=color;c.fillStyle=color;c.lineWidth=Math.max(2,f.width*.035);
     c.strokeRect(-f.width*.5,-f.height*.5,f.width,f.height);
     c.fillRect(-f.width*.4,-f.height*.05,f.width*.23,f.height*.1);c.fillRect(f.width*.17,-f.height*.05,f.width*.23,f.height*.1);
-    if(level>=2){for(const side of [-1,1])c.fillRect(side*f.width*.65-f.width*.06,-f.height*.2,f.width*.12,f.height*.45);}
+    if(level>=2){for(const side of [-1,1])c.fillRect(side*f.width*.43-f.width*.04,-f.height*.2,f.width*.08,f.height*.4);}
     if(level>=3){c.globalAlpha=.5;c.fillRect(-f.width*.47,-f.height*.15,f.width*.94,f.height*.3);c.globalAlpha=1;}
-    if(level>=4){c.beginPath();c.moveTo(-f.width*.5,-f.height*.7);c.lineTo(-f.width*.3,-f.height);c.lineTo(0,-f.height*.75);c.lineTo(f.width*.3,-f.height);c.lineTo(f.width*.5,-f.height*.7);c.stroke();}
-    if(level===5){c.strokeStyle='#ffe486';c.beginPath();c.ellipse(0,-f.height*.75,f.width*.65,f.height*.12,0,0,Math.PI*2);c.stroke();}
+    if(level>=4){c.beginPath();c.moveTo(-f.width*.3,-f.height*.3);c.lineTo(-f.width*.2,-f.height*.43);c.lineTo(0,-f.height*.32);c.lineTo(f.width*.2,-f.height*.43);c.lineTo(f.width*.3,-f.height*.3);c.stroke();}
+    if(level===5){c.strokeStyle='#ffe486';c.beginPath();c.ellipse(0,f.height*.32,f.width*.3,f.height*.06,0,0,Math.PI*2);c.stroke();}
     c.restore();
   }
-  check(now,level){if(now-this.lastSafeAt>200)this.fallback(level,this.issue||'delayed');return this.valid;}
+  recordSafe(now){return this.valid&&now>=this.lastSafeAt&&now-this.lastSafeAt<=200;}
+  check(now,level){if(now<this.lastSafeAt||now-this.lastSafeAt>SAFE_DISPLAY_HOLD_MS)this.fallback(level,this.issue||'delayed');return this.valid;}
   avatar(pose,width,height,level,now){
     const c=this.ctx,w=this.canvas.width,h=this.canvas.height,scaleX=w/width,scaleY=h/height;
     const point=name=>{const p=pose?.points?.[name];return p?.valid&&now-pose.capturedAt<=200?{x:p.x*scaleX,y:p.y*scaleY}:null;};

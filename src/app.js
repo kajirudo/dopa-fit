@@ -107,7 +107,7 @@ export class AppController {
   message(text, action = false, countdown = false) { this.messageTranslation=null;const calibrating=this.state==='CALIBRATING'&&!this.demo; $('stage-scrim').classList.toggle('calibrating',calibrating);$('stage-scrim').classList.toggle('counting',countdown);$('calibration-panel').classList.toggle('hidden',!calibrating);$('calibration-guide').classList.toggle('hidden',!calibrating);$('countdown-note').classList.toggle('hidden',!countdown);$('stage-scrim').classList.remove('hidden'); if($('stage-message').textContent!==text)$('stage-message').textContent = text; $('stage-message').classList.toggle('countdown', countdown); $('resume').classList.toggle('hidden', !action); }
   messageKey(key,action=false,values={}) { this.message(t(key,values),action);this.messageTranslation={key,action,values}; }
   changeLanguage(value) {
-    const message=this.messageTranslation;setLanguage(value);applyLanguage();this.bodyHint();this.updateAudio();this.saveSettings();
+    const message=this.messageTranslation;setLanguage(value);applyLanguage();this.recordFeature?.preferences(false);this.bodyHint();this.updateAudio();this.saveSettings();
     $('offline').textContent=t(this.offlineStatus||'online');if(this.updateBusy)$('update').textContent=t('updateBusy');
     if(this.state==='CALIBRATING')this.showCalibration(this.latestCalibration);else if(message)this.messageKey(message.key,message.action,message.values);
     if($('history').open)this.renderHistory();this.updateUI(performance.now());

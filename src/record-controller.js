@@ -7,10 +7,11 @@ import {exportHighlights} from './video-exporter.js';
 import {BACKGROUNDS,RECORD_CONFIG,STAGE_NAMES} from './record-config.js';
 import {t} from './i18n.js';
 import {PoCMetrics} from './poc-metrics.js';
+import {drawCameraFrame} from './camera.js';
 const $=id=>document.getElementById(id);
 export class DopaRecordController {
   constructor(app){
-    this.app=app;this.scene=new SafeScene($('private-scene'));this.provider=new URLSearchParams(location.search).get('faceTracker')==='landmarker'?'landmarker':'detector';
+    this.app=app;this.scene=new SafeScene($('private-scene'));this.cameraScene=document.createElement('canvas');this.provider=new URLSearchParams(location.search).get('faceTracker')==='landmarker'?'landmarker':'detector';
     const prefs=app.store.read('settings',{});$('face-mask').checked=!!prefs.faceMask;$('background-mode').value=BACKGROUNDS.includes(prefs.backgroundMode)?prefs.backgroundMode:'MY_ROOM';
     $('face-mask').onchange=()=>this.preferences();$('record-enabled').onchange=()=>this.preferences();$('background-mode').onchange=()=>{if($('background-mode').value!=='MY_ROOM')$('face-mask').checked=true;this.preferences();};
     $('preview-start').onclick=()=>this.previewActive?this.stopPreview():this.preview();
@@ -20,9 +21,11 @@ export class DopaRecordController {
     this.preferences(false);document.addEventListener('visibilitychange',()=>{if(document.hidden){this.stopPreview();this.scene.clear();}});
   }
   get settings(){return {faceMask:$('face-mask').checked,backgroundMode:$('background-mode').value};}
-  preferences(save=true){const requiresMask=$('record-enabled').checked||$('background-mode').value!=='MY_ROOM';if(requiresMask)$('face-mask').checked=true;$('face-mask').disabled=requiresMask;$('record-setup-summary').textContent=$('record-enabled').checked?'RECORD ON':$('face-mask').checked?'MASK ON':'OFF';
-    $('background-note').textContent=t($('background-mode').value==='MY_ROOM'?'roomNotice':$('background-mode').value==='BLUR_ROOM'?'blurNotice':'stageNotice');if(save)this.app.saveSettings();if(this.previewActive)this.configure();}
-  configure(){this.background=$('background-mode').value;this.masked=$('face-mask').checked||$('record-enabled').checked||this.background!=='MY_ROOM';
+  preferences(save=true){const requiresMask=$('background-mode').value!=='MY_ROOM';if(requiresMask)$('face-mask').checked=true;$('face-mask').disabled=requiresMask;$('record-setup-summary').textContent=$('record-enabled').checked?'RECORD ON':$('face-mask').checked?'MASK ON':'OFF';
+    $('record-face-note').classList.toggle('hidden',!$('record-enabled').checked);$('record-face-note').textContent=t($('face-mask').checked?'recordMaskedNotice':'recordUnmaskedNotice');
+    $('background-note').textContent=t($('background-mode').value==='MY_ROOM'?'roomNotice':$('background-mode').value==='BLUR_ROOM'?'blurNotice':'stageNotice')+(requiresMask?' '+t('backgroundMaskNotice'):'');if(save)this.app.saveSettings();if(this.previewActive)this.configure();}
+  configure(){this.background=$('background-mode').value;this.masked=$('face-mask').checked||this.background!=='MY_ROOM';
+    if(!this.masked){this.tracker?.dispose();this.tracker=null;}
     this.app.renderer.masked=this.masked;$('face-notice').classList.add('hidden');$('play').classList.toggle('masked',this.masked);$('private-scene').classList.toggle('hidden',!this.masked);this.scene.clear();}
   initTracker(){
     if(this.trackerInit)return this.trackerInit;
@@ -39,7 +42,7 @@ export class DopaRecordController {
     if(!['IDLE','FINISHED'].includes(this.app.state))return;this.configure();this.previewActive=true;$('setup-preview').classList.remove('hidden');$('preview-start').textContent=t('previewStop');$('setup-status').textContent=this.masked?t('maskPreparing'):'';
     try{await this.app.camera.start();if(this.masked)await this.initTracker();if(!this.previewActive)return;
       const loop=()=>{if(!this.previewActive)return;this.resize(390,600);this.capture(performance.now(),0);
-        if(!this.masked){const c=this.scene.ctx;c.save();c.translate(390,0);c.scale(-1,1);c.drawImage($('camera'),0,0,390,600);c.restore();}
+        if(!this.masked)drawCameraFrame($('camera'),this.scene.canvas,$('camera-fit').value);
         else {this.scene.check(performance.now(),0);if(!this.scene.valid)this.scene.avatar(null,390,600,0,performance.now());}
         $('setup-preview').getContext('2d').drawImage(this.scene.canvas,0,0,390,600);this.previewRaf=requestAnimationFrame(loop);};loop();
     }catch{$('setup-status').textContent=t('maskUnavailable');this.stopPreview();}
@@ -64,14 +67,19 @@ export class DopaRecordController {
   }
   get maskNotice(){if(this.trackingError)return t('maskRetrying');if(!this.tracker?.ready)return t('maskPreparing');return t(({ 'no-face':'maskFindFace','too-close':'maskStepBack',multiple:'maskOnePerson',delayed:'maskTracking',background:'maskBackground',checking:'maskTracking' })[this.scene.issue]||'maskTracking');}
   render(now){
-    if(!this.masked)return;const app=this.app,level=app.game?.energy.presentedStageLevel||0;this.resize(app.renderer.canvas.width,app.renderer.canvas.height);
+    if(!this.masked&&!this.enabled)return;const app=this.app,level=app.game?.energy.presentedStageLevel||0;this.resize(app.renderer.canvas.width,app.renderer.canvas.height);
+    let source=this.scene.canvas,recordReady=false;
     if(this.demo){this.scene.fallback(level);const c=this.scene.ctx,w=this.scene.canvas.width,h=this.scene.canvas.height;
-      this.scene.cover(c,{x:w*.4,y:h*.22,width:w*.2,height:h*.12,roll:Math.sin(now/1000)*.08},level);this.scene.valid=true;this.scene.lastSafeAt=now;this.scene.level=level;
-    }else {this.capture(now,level);this.scene.check(now,level);this.scene.present(level);if(!this.scene.valid)this.scene.avatar(app.mapped,app.renderer.width,app.renderer.height,level,now);}
-    $('face-notice').classList.toggle('setup-notice',['CALIBRATING','COUNTDOWN'].includes(app.state));$('face-notice').classList.toggle('hidden',this.demo||this.scene.valid);if(!this.demo&&!this.scene.valid)$('face-notice').textContent=this.maskNotice;
-    if(app.state==='PLAYING')this.poc?.frame(Math.max(0,(now-(this.pocFrameAt||now))/1000),this.scene.valid);this.pocFrameAt=now;
+      if(this.masked)this.scene.cover(c,{x:w*.4,y:h*.22,width:w*.2,height:h*.12,roll:Math.sin(now/1000)*.08},level);this.scene.valid=true;this.scene.lastSafeAt=now;this.scene.level=level;recordReady=true;
+    }else if(this.masked){this.capture(now,level);this.scene.check(now,level);this.scene.present(level);if(!this.scene.valid)this.scene.avatar(app.mapped,app.renderer.width,app.renderer.height,level,now);recordReady=this.scene.recordSafe(now);
+    }else {
+      source=this.cameraScene;if(source.width!==this.scene.canvas.width||source.height!==this.scene.canvas.height){source.width=this.scene.canvas.width;source.height=this.scene.canvas.height;}
+      recordReady=!!app.camera.stream?.active&&drawCameraFrame($('camera'),source,$('camera-fit').value);
+    }
+    $('face-notice').classList.toggle('setup-notice',['CALIBRATING','COUNTDOWN'].includes(app.state));$('face-notice').classList.toggle('hidden',!this.masked||this.demo||this.scene.valid);if(this.masked&&!this.demo&&!this.scene.valid)$('face-notice').textContent=this.maskNotice;
+    if(app.state==='PLAYING')this.poc?.frame(Math.max(0,(now-(this.pocFrameAt||now))/1000),this.masked?this.scene.valid:recordReady);this.pocFrameAt=now;
     const state=app.game?.energy;
-    if(this.session&&state)this.session.frame(this.scene.canvas,app.renderer.canvas,state,app.audio,{active:app.state==='PLAYING'&&!app.practice?.active,safe:this.scene.valid,seconds:app.seconds,cycle:app.game.presentationCycle||state.cycle,beatSeconds:(app.music.clock?.beatMs||500)/1000});
+    if(this.session&&state)this.session.frame(source,app.renderer.canvas,state,app.audio,{active:app.state==='PLAYING'&&!app.practice?.active,safe:recordReady,seconds:app.seconds,cycle:app.game.presentationCycle||state.cycle,beatSeconds:(app.music.clock?.beatMs||500)/1000});
   }
   note(events,pose){this.session?.note(events,pose,this.app.renderer.width,this.app.renderer.height);}
   pause(){this.session?.stop();this.scene.clear();}

@@ -161,6 +161,16 @@ export class Renderer {
       const opacity=p.held || p.inferred || now-pose.capturedAt>200 ? Math.max(.15,1-age/HAND_GRACE_MS) : 1;
       const marker = this.markers[name] ??= { x: p.x, y: p.y }; const factor = 1 - Math.exp(-dt * 35);
       marker.x += (p.x - marker.x) * factor; marker.y += (p.y - marker.y) * factor;
+      if(this.masked&&now>=pose.capturedAt&&now-pose.capturedAt<=200){
+        // Pose guides remain above the opaque mask, including when an arm crosses the face.
+        const side=name.split('_')[0],elbow=pose.points?.[`${side}_elbow`],shoulder=pose.points?.[`${side}_shoulder`];
+        if(elbow?.valid){
+          ctx.save();ctx.globalAlpha=opacity;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
+          if(shoulder?.valid){ctx.moveTo(shoulder.x,shoulder.y);ctx.lineTo(elbow.x,elbow.y);}else ctx.moveTo(elbow.x,elbow.y);
+          ctx.lineTo(marker.x,marker.y);ctx.strokeStyle='#102c29';ctx.lineWidth=9;ctx.stroke();ctx.strokeStyle=color;ctx.lineWidth=4;ctx.stroke();
+          ctx.fillStyle=color;ctx.beginPath();ctx.arc(elbow.x,elbow.y,5,0,Math.PI*2);ctx.fill();ctx.restore();
+        }
+      }
       const trail = this.trails[name] ??= []; trail.push({ ...marker, at: now }); while (trail.length > 16 || trail[0]?.at < now - 240) trail.shift();
       if (!reduced && trail.length > 1) {
         ctx.lineCap = 'round'; ctx.strokeStyle = (feedback?.presentedStageLevel||0)>=3?stage.color:color;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialCameraFit} from '../src/camera.js';
-import {maskBounds} from '../src/safe-scene.js';
+import {maskBounds,SafeScene,SAFE_DISPLAY_HOLD_MS} from '../src/safe-scene.js';
 import {faceResultIssue,validFaceResult} from '../src/face-tracker.js';
 
 test('both body modes fill the screen; legacy automatic full-body contain migrates once and explicit choices persist',()=>{
@@ -17,7 +17,21 @@ test('compact opaque shield contains the entire detected face and leaves a hand 
   assert.ok(b.x+b.width>=face.x+face.width&&b.y+b.height>=face.y+face.height);
   assert.ok(b.radius<face.x-b.x&&b.radius<face.y-b.y);
   assert.ok(b.width*b.height<face.width*face.height*1.8*2*.5);
-  assert.ok(b.y+b.height<276); // A wrist just below the chin, previously inside the large shield.
+  assert.ok(b.y+b.height<244); // A raised hand near the chin remains outside the shield.
+});
+
+test('only an already-masked snapshot bridges inference gaps; stale frames never become recording-safe',()=>{
+  const scene=Object.assign(Object.create(SafeScene.prototype),{valid:true,lastSafeAt:100,fallback(){this.valid=false;}});
+  assert.equal(scene.recordSafe(300),true);
+  assert.equal(scene.check(301,0),true);
+  assert.equal(scene.recordSafe(301),false);
+  assert.equal(scene.check(100+SAFE_DISPLAY_HOLD_MS,0),true);
+  assert.equal(scene.check(101+SAFE_DISPLAY_HOLD_MS,0),false);
+  scene.valid=false;scene.lastSafeAt=600;
+  assert.equal(scene.check(601,0),false); // A rejected frame cannot revive the previous view.
+  assert.equal(scene.recordSafe(601),false);
+  scene.valid=true;
+  assert.equal(scene.recordSafe(599),false);
 });
 test('face loss, oversized detections and stale processing have actionable reasons and never authorize raw footage',()=>{
   const result={capturedAt:100,faces:[{x:.3,y:.3,width:.2,height:.3,roll:0}]};

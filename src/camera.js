@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT
+import {viewport} from './coordinates.js';
+export function drawCameraFrame(video,canvas,fit='cover') {
+  const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+  c.fillStyle='#102c29';c.fillRect(0,0,w,h);
+  if(video.readyState<2)return false;
+  const rect=viewport(video.videoWidth,video.videoHeight,w,h,fit);if(!rect)return false;
+  c.save();c.translate(w,0);c.scale(-1,1);c.drawImage(video,rect.x,rect.y,rect.width,rect.height);c.restore();
+  return true;
+}
 export function initialCameraFit(settings={}) {
   // Old full-body sessions acquired contain automatically; migrate that default once.
   if(settings.bodyMode==='full'&&settings.cameraFit==='contain'&&settings.cameraViewVersion!==2)return 'cover';
